@@ -26,6 +26,7 @@ type Schedule struct {
 type Event struct {
 	StartTime string          `json:"startTime"`
 	State     string          `json:"state"`
+	Type      string          `json:"type"`
 	Match     json.RawMessage `json:"match"`
 }
 
@@ -46,7 +47,7 @@ var (
 	APIKey                = os.Getenv("APIKEY")
 
 	// Since Lambda is kept warm, it will save global variables.
-	// prevMatches is essentially a cache
+	// prevSchedule and prevMatches are essentially caches
 	prevSchedule []byte
 	prevMatches  map[string]Match
 
@@ -87,6 +88,10 @@ func handler() {
 	var matchesToUpdate []Match
 	var matches = make(map[string]Match)
 	for _, matchEvent := range matchEvents {
+		if matchEvent.Type != "match" {
+			continue
+		}
+
 		matchID := gjson.GetBytes(matchEvent.Match, "id").String()
 
 		strategy, err := getStrategy(matchEvent.Match)
@@ -258,8 +263,6 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
 }
 
 func updateScheduleInDynamoDb(wg *sync.WaitGroup, schedule string) {
-	wg.Add(1)
-
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String("Matches"),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -275,6 +278,7 @@ func updateScheduleInDynamoDb(wg *sync.WaitGroup, schedule string) {
 		UpdateExpression: aws.String("SET schedule = :s"),
 	}
 
+	wg.Add(1)
 	go updateDB(wg, input)
 }
 
