@@ -8,16 +8,29 @@ STACK_NAME = lol-vigil
 REGION = us-east-1
 ZIPPER = ${GOPATH}\bin\build-lambda-zip.exe
 
+.PHONY: createDb
+createDb:
+	docker run -d -v F:\Users\Brian\go\src\github.com\brnlee\LoL-Vigil\backend\dynamodb_local_db -p 8000:8000 --network lambda-local --name dynamodb cnadiminti/dynamodb-local
+
+.PHONY: createMatches
+createMatches: deleteMatches
+	aws dynamodb create-table --table-name Matches --attribute-definitions AttributeName=id,AttributeType=N --key-schema AttributeName=id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=25,WriteCapacityUnits=25 --endpoint-url http://localhost:8000
+
+.PHONY: deleteMatches
+deleteMatches:
+	aws dynamodb delete-table --table-name Matches --endpoint-url http://localhost:8000
+
+.PHONY: scanMatches
+scanMatches:
+	aws dynamodb scan --table-name Matches --endpoint-url http://localhost:8000
+
+.PHONY: startdb
+startdb:
+	docker start dynamodb
+
 .PHONY: clean
 clean:
-	rm -f hello_world update_schedule get_schedule $(PACKAGED_TEMPLATE)
-
-.PHONY: install
-install:
-	go get ./...
-
-hello_world: hello-world
-	go build -o hello_world ./hello-world
+	rm -f update_schedule get_schedule $(PACKAGED_TEMPLATE)
 
 update_schedule: updateSchedule
 	env GOOS=linux GOARCH=amd64 go build -o update_schedule ./updateSchedule
@@ -25,25 +38,18 @@ update_schedule: updateSchedule
 
 get_schedule: getSchedule
 	go build -o get_schedule ./getSchedule
-
-.PHONY: lambda
-lambda: update_schedule
-	env GOOS=linux GOARCH=amd64 $(MAKE) hello_world
-	env GOOS=linux GOARCH=amd64 $(MAKE) get_schedule
-	$(ZIPPER) -o hello_world.zip hello_world
 	$(ZIPPER) -o get_schedule.zip get_schedule
-
-.PHONY: build
-build: lambda
 
 .PHONY: testUpdateSchedule
 testUpdateSchedule: update_schedule
-	sam local invoke 'UpdateScheduleFunction'
+	sam local invoke 'UpdateScheduleFunction' --docker-network lambda-local
+
+.PHONY: build
+build: update_schedule getSchedule
 
 .PHONY: run
 run: build
 	sam local start-api
-
 
 .PHONY: package
 package: build
