@@ -14,7 +14,7 @@ createDb:
 
 .PHONY: createMatches
 createMatches: deleteMatches
-	aws dynamodb create-table --table-name Matches --attribute-definitions AttributeName=id,AttributeType=N --key-schema AttributeName=id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=25,WriteCapacityUnits=25 --endpoint-url http://localhost:8000
+	aws dynamodb create-table --table-name Matches --attribute-definitions AttributeName=id,AttributeType=N --key-schema AttributeName=id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=20,WriteCapacityUnits=20 --endpoint-url http://localhost:8000
 
 .PHONY: deleteMatches
 deleteMatches:
@@ -23,6 +23,18 @@ deleteMatches:
 .PHONY: scanMatches
 scanMatches:
 	aws dynamodb scan --table-name Matches --endpoint-url http://localhost:8000
+
+.PHONY: createSchedule
+createSchedule: deleteSchedule
+	aws dynamodb create-table --table-name Schedule --attribute-definitions AttributeName=page,AttributeType=N --key-schema AttributeName=page,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --endpoint-url http://localhost:8000
+
+.PHONY: deleteSchedule
+deleteSchedule:
+	aws dynamodb delete-table --table-name Schedule --endpoint-url http://localhost:8000
+
+.PHONY: scanSchedule
+scanSchedule:
+	aws dynamodb scan --table-name Schedule --endpoint-url http://localhost:8000
 
 .PHONY: startdb
 startdb:

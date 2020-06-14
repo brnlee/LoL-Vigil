@@ -8,18 +8,22 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/brnlee/LoL-Vigil/utils"
+	"github.com/brnlee/LoL-Vigil/common"
 	"github.com/tidwall/gjson"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
+	"time"
 )
 
 type Schedule struct {
-	Updated string          `json:"updated"`
-	Events  json.RawMessage `json:"events"`
+	Updated       string          `json:"updated"`
+	Events        json.RawMessage `json:"events"`
+	NextPageToken string
+	CurrentPage   int
 }
 
 type Event struct {
@@ -43,94 +47,57 @@ type Strategy struct {
 }
 
 var (
-	DefaultHTTPGetAddress = "https://esports-api.lolesports.com/persisted/gw/getSchedule?hl=en-US"
-	APIKey                = os.Getenv("APIKEY")
+	APIKey = os.Getenv("APIKEY")
 
 	// Since Lambda is kept warm, it will save global variables.
 	// prevSchedule and prevMatches are essentially caches
-	prevSchedule []byte
-	prevMatches  map[string]Match
+	prevSchedule   = make(map[int][]byte)
+	prevMatches    map[string]Match
+	prevMatchesAge time.Time
 
-	db = utils.ConnectToDynamoDb()
+	db = common.ConnectToDynamoDb()
 )
 
 func handler() {
 	log.SetFlags(log.Lshortfile)
-	responseBytes, err := pullSchedule()
-	if err != nil {
-		log.Printf("Error pulling schedule: %s\n", err)
-		return
+	if prevMatchesAge.IsZero() || time.Now().Sub(prevMatchesAge).Minutes() >= 60 {
+		println("Making new prevMatches map")
+		prevMatches = make(map[string]Match)
+		prevMatchesAge = time.Now()
 	}
 
-	schedule, scheduleJson, err := createSchedule(responseBytes)
-	if err != nil {
-		log.Printf("Error creating schedule: %s\n", err)
-		return
-	}
-
-	if bytes.Equal(prevSchedule, schedule.Events) {
-		fmt.Printf("Same schedule as last update\n")
-		return
-	}
-	prevSchedule = schedule.Events
-
-	var matchEvents []Event
-	err = json.Unmarshal(schedule.Events, &matchEvents)
-	if err != nil {
-		log.Printf("Error unmarshalling events: %s\n", err)
-		return
-	}
-
-	var wg sync.WaitGroup
-
-	updateScheduleInDynamoDb(&wg, scheduleJson)
-
-	var matchesToUpdate []Match
-	var matches = make(map[string]Match)
-	for _, matchEvent := range matchEvents {
-		if matchEvent.Type != "match" {
-			continue
-		}
-
-		matchID := gjson.GetBytes(matchEvent.Match, "id").String()
-		teamsResult := gjson.GetBytes(matchEvent.Match, "teams.#.name").Array()
-		teams := [2]string{teamsResult[0].String(), teamsResult[1].String()}
-
-		strategy, err := getStrategy(matchEvent.Match)
+	pageNumber := 1
+	nextPageToken := ""
+	for pageNumber != -1 {
+		responseBytes, err := pullSchedule(nextPageToken)
 		if err != nil {
-			println("Error getting the strategy of a match.")
-			continue
+			log.Printf("Error pulling schedule: %s\n", err)
+			return
 		}
 
-		match := Match{
-			ID:        matchID,
-			StartTime: matchEvent.StartTime,
-			State:     matchEvent.State,
-			Teams:     teams,
-			Strategy:  strategy,
+		schedule, scheduleJson, err := createSchedule(responseBytes, pageNumber)
+		if err != nil {
+			log.Printf("Error creating schedule: %s\n", err)
+			return
 		}
-		matches[matchID] = match
 
-		prevMatchVersion, ok := prevMatches[matchID]
-		if (ok && prevMatchVersion != match) || !ok {
-			matchesToUpdate = append(matchesToUpdate, match)
+		compareAndUpdateDynamoDb(schedule, scheduleJson)
+
+		nextPageToken = schedule.NextPageToken
+		if len(nextPageToken) == 0 {
+			break
 		}
+		pageNumber++
 	}
-
-	prevMatches = matches
-
-	if len(matchesToUpdate) == 0 {
-		fmt.Printf("Same matches as last update\n")
-	} else {
-		fmt.Printf("Different matches from last update\n")
-		updateMatchesInDynamoDb(&wg, matchesToUpdate)
-	}
-
-	wg.Wait()
 }
 
-func pullSchedule() ([]byte, error) {
-	req, err := http.NewRequest("GET", DefaultHTTPGetAddress, nil)
+func pullSchedule(pageToken string) ([]byte, error) {
+	getScheduleAddress := "https://esports-api.lolesports.com/persisted/gw/getSchedule?hl=en-US"
+	if pageToken != "" {
+		getScheduleAddress += fmt.Sprintf("&pageToken=%s", pageToken)
+	}
+
+	req, err := http.NewRequest("GET", getScheduleAddress, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +119,7 @@ func pullSchedule() ([]byte, error) {
 	return responseBytes, nil
 }
 
-func createSchedule(scheduleBytes []byte) (*Schedule, string, error) {
+func createSchedule(scheduleBytes []byte, pageNumber int) (*Schedule, string, error) {
 	scheduleResult := gjson.GetBytes(scheduleBytes, "data.schedule")
 
 	var rawSchedule []byte
@@ -167,6 +134,10 @@ func createSchedule(scheduleBytes []byte) (*Schedule, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+
+	nextPageTokenResult := gjson.GetBytes(scheduleBytes, "data.schedule.pages.newer")
+	schedule.NextPageToken = nextPageTokenResult.String()
+	schedule.CurrentPage = pageNumber
 
 	return &schedule, scheduleResult.String(), nil
 }
@@ -193,14 +164,14 @@ func updateDB(wg *sync.WaitGroup, input *dynamodb.UpdateItemInput) {
 	defer wg.Done()
 
 	_, err := db.UpdateItem(input)
-	utils.CheckDbResponseError(err)
+	common.CheckDbResponseError(err)
 }
 
 func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
 	for _, match := range matches {
 		matchJson, err := dynamodbattribute.MarshalMap(match)
 		if err != nil {
-			println("Error marshalling match", err)
+			log.Println("Error marshalling match", err)
 			return
 		}
 
@@ -223,12 +194,12 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
 	}
 }
 
-func updateScheduleInDynamoDb(wg *sync.WaitGroup, schedule string) {
+func updateScheduleInDynamoDb(wg *sync.WaitGroup, schedule string, page int) {
 	input := &dynamodb.UpdateItemInput{
-		TableName: aws.String("Matches"),
+		TableName: aws.String("Schedule"),
 		Key: map[string]*dynamodb.AttributeValue{
-			"id": {
-				N: aws.String("-1"),
+			"page": {
+				N: aws.String(strconv.Itoa(page)),
 			},
 		},
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
@@ -241,6 +212,66 @@ func updateScheduleInDynamoDb(wg *sync.WaitGroup, schedule string) {
 
 	wg.Add(1)
 	go updateDB(wg, input)
+}
+
+func compareAndUpdateDynamoDb(schedule *Schedule, scheduleJSON string) {
+	if bytes.Equal(prevSchedule[schedule.CurrentPage], schedule.Events) {
+		fmt.Printf("Page %d contains the same schedule as last update\n", schedule.CurrentPage)
+		return
+	}
+	prevSchedule[schedule.CurrentPage] = schedule.Events
+
+	var matchEvents []Event
+	err := json.Unmarshal(schedule.Events, &matchEvents)
+	if err != nil {
+		log.Printf("Error unmarshalling events: %s\n", err)
+		return
+	}
+
+	updateWG := sync.WaitGroup{}
+	updateScheduleInDynamoDb(&updateWG, scheduleJSON, schedule.CurrentPage)
+
+	var matchesToUpdate []Match
+	var matches = make(map[string]Match)
+	for _, matchEvent := range matchEvents {
+		if matchEvent.Type != "match" {
+			continue
+		}
+
+		matchID := gjson.GetBytes(matchEvent.Match, "id").String()
+		teamsResult := gjson.GetBytes(matchEvent.Match, "teams.#.name").Array()
+		teams := [2]string{teamsResult[0].String(), teamsResult[1].String()}
+
+		strategy, err := getStrategy(matchEvent.Match)
+		if err != nil {
+			log.Println("Error getting the strategy of a match.")
+			continue
+		}
+
+		match := Match{
+			ID:        matchID,
+			StartTime: matchEvent.StartTime,
+			State:     matchEvent.State,
+			Teams:     teams,
+			Strategy:  strategy,
+		}
+		matches[matchID] = match
+
+		prevMatchVersion, ok := prevMatches[matchID]
+		if (ok && prevMatchVersion != match) || !ok {
+			matchesToUpdate = append(matchesToUpdate, match)
+			prevMatches[matchID] = match
+		}
+	}
+
+	if len(matchesToUpdate) == 0 {
+		fmt.Printf("Schedule page %d contains the same matches as last update\n", schedule.CurrentPage)
+	} else {
+		fmt.Printf("Schedule page %d contains different matches from last update\n", schedule.CurrentPage)
+		updateMatchesInDynamoDb(&updateWG, matchesToUpdate)
+	}
+
+	updateWG.Wait()
 }
 
 func main() {
