@@ -37,19 +37,23 @@ update_schedule: updateSchedule
 	$(ZIPPER) -o update_schedule.zip update_schedule
 
 get_schedule: getSchedule
-	go build -o get_schedule ./getSchedule
+	env GOOS=linux GOARCH=amd64 go build -o get_schedule ./getSchedule
 	$(ZIPPER) -o get_schedule.zip get_schedule
 
 .PHONY: testUpdateSchedule
 testUpdateSchedule: update_schedule
 	sam local invoke 'UpdateScheduleFunction' --docker-network lambda-local
 
+.PHONY: testGetSchedule
+testGetSchedule: get_schedule
+	sam local invoke 'GetScheduleFunction' --docker-network lambda-local
+
 .PHONY: build
-build: update_schedule getSchedule
+build: update_schedule get_schedule
 
 .PHONY: run
 run: build
-	sam local start-api
+	sam local start-api --docker-network lambda-local
 
 .PHONY: package
 package: build

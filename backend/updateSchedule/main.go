@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/brnlee/LoL-Vigil/utils"
 	"github.com/tidwall/gjson"
 	"io/ioutil"
 	"log"
@@ -31,10 +30,11 @@ type Event struct {
 }
 
 type Match struct {
-	ID        string   `json:":matchID"`
-	StartTime string   `json:":time"`
-	State     string   `json:":state"`
-	Strategy  Strategy `json:":strat"`
+	ID        string    `json:"-"`
+	StartTime string    `json:":time"`
+	State     string    `json:":state"`
+	Teams     [2]string `json:":teams"`
+	Strategy  Strategy  `json:":strat"`
 }
 
 type Strategy struct {
@@ -51,7 +51,7 @@ var (
 	prevSchedule []byte
 	prevMatches  map[string]Match
 
-	db = connectToDynamoDb()
+	db = utils.ConnectToDynamoDb()
 )
 
 func handler() {
@@ -93,6 +93,8 @@ func handler() {
 		}
 
 		matchID := gjson.GetBytes(matchEvent.Match, "id").String()
+		teamsResult := gjson.GetBytes(matchEvent.Match, "teams.#.name").Array()
+		teams := [2]string{teamsResult[0].String(), teamsResult[1].String()}
 
 		strategy, err := getStrategy(matchEvent.Match)
 		if err != nil {
@@ -104,6 +106,7 @@ func handler() {
 			ID:        matchID,
 			StartTime: matchEvent.StartTime,
 			State:     matchEvent.State,
+			Teams:     teams,
 			Strategy:  strategy,
 		}
 		matches[matchID] = match
@@ -186,57 +189,15 @@ func getStrategy(rawMatch []byte) (Strategy, error) {
 	return strategy, nil
 }
 
-func connectToDynamoDb() *dynamodb.DynamoDB {
-	isSAMLocal := os.Getenv("AWS_SAM_LOCAL")
-
-	var config *aws.Config
-	if isSAMLocal == "true" {
-		config = &aws.Config{
-			Endpoint: aws.String("http://dynamodb:8000"),
-		}
-	}
-
-	sess, err := session.NewSession(config)
-	if err != nil {
-		println(err.Error())
-	}
-
-	return dynamodb.New(sess)
-}
-
 func updateDB(wg *sync.WaitGroup, input *dynamodb.UpdateItemInput) {
 	defer wg.Done()
 
 	_, err := db.UpdateItem(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case dynamodb.ErrCodeConditionalCheckFailedException:
-				fmt.Println(dynamodb.ErrCodeConditionalCheckFailedException, aerr.Error())
-			case dynamodb.ErrCodeProvisionedThroughputExceededException:
-				fmt.Println(dynamodb.ErrCodeProvisionedThroughputExceededException, aerr.Error())
-			case dynamodb.ErrCodeResourceNotFoundException:
-				fmt.Println(dynamodb.ErrCodeResourceNotFoundException, aerr.Error())
-			case dynamodb.ErrCodeItemCollectionSizeLimitExceededException:
-				fmt.Println(dynamodb.ErrCodeItemCollectionSizeLimitExceededException, aerr.Error())
-			case dynamodb.ErrCodeTransactionConflictException:
-				fmt.Println(dynamodb.ErrCodeTransactionConflictException, aerr.Error())
-			case dynamodb.ErrCodeRequestLimitExceeded:
-				fmt.Println(dynamodb.ErrCodeRequestLimitExceeded, aerr.Error())
-			case dynamodb.ErrCodeInternalServerError:
-				fmt.Println(dynamodb.ErrCodeInternalServerError, aerr.Error())
-			default:
-				fmt.Println(aerr.Error())
-			}
-		} else {
-			fmt.Println(err.Error())
-		}
-	}
+	utils.CheckDbResponseError(err)
 }
 
 func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
 	for _, match := range matches {
-		fmt.Printf("%+v\n", match)
 		matchJson, err := dynamodbattribute.MarshalMap(match)
 		if err != nil {
 			println("Error marshalling match", err)
@@ -254,7 +215,7 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
 			ExpressionAttributeNames: map[string]*string{
 				"#STATE": aws.String("state"),
 			},
-			UpdateExpression: aws.String("SET matchID = :matchID, startTime = :time, #STATE = :state, strategy = :strat"),
+			UpdateExpression: aws.String("SET startTime = :time, #STATE = :state, strategy = :strat, teams = :teams"),
 		}
 
 		wg.Add(1)

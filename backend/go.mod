@@ -4,6 +4,6 @@ require (
 	github.com/tidwall/gjson v1.6.0
 )
 
-module hello-world
+module github.com/brnlee/LoL-Vigil
 
 go 1.14
