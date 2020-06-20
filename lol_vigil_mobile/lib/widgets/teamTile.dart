@@ -12,14 +12,20 @@ class TeamTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Uri imageUri = Uri.http(
-        Constants.AKAMAI_URL, '/image', {'resize': '45:', 'f': team.image});
+        Constants.AKAMAI_URL, '/image', {'resize': '50:', 'f': team.image});
     return Row(
       children: <Widget>[
         Padding(
           padding: EdgeInsets.symmetric(vertical: 3, horizontal: 10),
           child: CachedNetworkImage(
-            placeholder: (context, url) => const CircularProgressIndicator(),
+            placeholder: (context, url) => SizedBox(
+              child: CircularProgressIndicator(),
+              width: 35,
+              height: 35,
+            ),
             imageUrl: imageUri.toString(),
+            height: 35,
+            fit: BoxFit.fitHeight,
           ),
         ),
         Text(
