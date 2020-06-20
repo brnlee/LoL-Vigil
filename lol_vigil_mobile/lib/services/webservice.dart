@@ -10,8 +10,10 @@ class Resource<T> {
 
 class Webservice {
   Future<T> load<T>(Resource<T> resource) async {
+    print('GETTING');
     final response = await http.get(resource.url);
     if(response.statusCode == 200) {
+      print('OK');
       return resource.parse(response);
     } else {
       throw Exception('Failed to load data!');

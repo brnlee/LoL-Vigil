@@ -18,24 +18,21 @@ class Schedule {
   List<Event> events;
 
   factory Schedule.fromJson(Map<String, dynamic> json) => Schedule(
-    events: List<Event>.from(json["events"].map((x) => Event.fromJson(x)))
-        .where((event) => event.state != 'completed').toList(),
-  );
+      events: List<Event>.from(json["events"].map((x) => Event.fromJson(x)))
+          .where((event) => event != null && event.state != 'completed')
+          .toList());
 
   Map<String, dynamic> toJson() => {
-    "events": List<dynamic>.from(events.map((x) => x.toJson())),
-  };
+        "events": List<dynamic>.from(events.map((x) => x.toJson())),
+      };
 
   static Resource<List<Event>> get all {
     return Resource(
         url: Constants.GET_SCHEDULE_URL,
         parse: (response) {
           final result = json.decode(response.body);
-          print('PARSING');
           return Schedule.fromJson(result).events;
-        }
-    );
-
+        });
   }
 }
 
@@ -56,23 +53,37 @@ class Event {
   League league;
   Match match;
 
-  factory Event.fromJson(Map<String, dynamic> json) => Event(
-    startTime: DateTime.parse(json["startTime"]),
-    state: json["state"],
-    type: json["type"],
-    blockName: json["blockName"],
-    league: League.fromJson(json["league"]),
-    match: Match.fromJson(json["match"]),
-  );
+  factory Event.fromJson(Map<String, dynamic> json) {
+    String type = json["type"];
+    if (type == 'match') {
+      return Event(
+        startTime: DateTime.parse(json["startTime"]),
+        state: json["state"],
+        type: json["type"],
+        blockName: json["blockName"],
+        league: League.fromJson(json["league"]),
+        match: Match.fromJson(json["match"]),
+      );
+    }
+    else
+      return null;
+  }
 
   Map<String, dynamic> toJson() => {
-    "startTime": startTime.toIso8601String(),
-    "state": state,
-    "type": type,
-    "blockName": blockName,
-    "league": league.toJson(),
-    "match": match.toJson(),
-  };
+        "startTime": startTime.toIso8601String(),
+        "state": state,
+        "type": type,
+        "blockName": blockName,
+        "league": league.toJson(),
+        "match": match.toJson(),
+      };
+}
+
+class Alarm {
+  Alarm(this.matchID);
+
+  String matchID;
+  bool isSet = false;
 }
 
 class League {
@@ -85,14 +96,14 @@ class League {
   String slug;
 
   factory League.fromJson(Map<String, dynamic> json) => League(
-    name: json["name"],
-    slug: json["slug"],
-  );
+        name: json["name"],
+        slug: json["slug"],
+      );
 
   Map<String, dynamic> toJson() => {
-    "name": name,
-    "slug": slug,
-  };
+        "name": name,
+        "slug": slug,
+      };
 }
 
 class Match {
@@ -109,18 +120,18 @@ class Match {
   Strategy strategy;
 
   factory Match.fromJson(Map<String, dynamic> json) => Match(
-    id: json["id"],
-    flags: List<dynamic>.from(json["flags"].map((x) => x)),
-    teams: List<Team>.from(json["teams"].map((x) => Team.fromJson(x))),
-    strategy: Strategy.fromJson(json["strategy"]),
-  );
+        id: json["id"],
+        flags: List<dynamic>.from(json["flags"].map((x) => x)),
+        teams: List<Team>.from(json["teams"].map((x) => Team.fromJson(x))),
+        strategy: Strategy.fromJson(json["strategy"]),
+      );
 
   Map<String, dynamic> toJson() => {
-    "id": id,
-    "flags": List<dynamic>.from(flags.map((x) => x)),
-    "teams": List<dynamic>.from(teams.map((x) => x.toJson())),
-    "strategy": strategy.toJson(),
-  };
+        "id": id,
+        "flags": List<dynamic>.from(flags.map((x) => x)),
+        "teams": List<dynamic>.from(teams.map((x) => x.toJson())),
+        "strategy": strategy.toJson(),
+      };
 }
 
 class Strategy {
@@ -133,14 +144,14 @@ class Strategy {
   int count;
 
   factory Strategy.fromJson(Map<String, dynamic> json) => Strategy(
-    type: json["type"],
-    count: json["count"],
-  );
+        type: json["type"],
+        count: json["count"],
+      );
 
   Map<String, dynamic> toJson() => {
-    "type": type,
-    "count": count,
-  };
+        "type": type,
+        "count": count,
+      };
 }
 
 class Team {
@@ -159,20 +170,20 @@ class Team {
   Record record;
 
   factory Team.fromJson(Map<String, dynamic> json) => Team(
-    name: json["name"],
-    code: json["code"],
-    image: json["image"],
-    result: Result.fromJson(json["result"]),
-    record: Record.fromJson(json["record"]),
-  );
+        name: json["name"],
+        code: json["code"],
+        image: json["image"],
+        result: Result.fromJson(json["result"]),
+        record: Record.fromJson(json["record"]),
+      );
 
   Map<String, dynamic> toJson() => {
-    "name": name,
-    "code": code,
-    "image": image,
-    "result": result.toJson(),
-    "record": record.toJson(),
-  };
+        "name": name,
+        "code": code,
+        "image": image,
+        "result": result.toJson(),
+        "record": record.toJson(),
+      };
 }
 
 class Record {
@@ -185,14 +196,14 @@ class Record {
   int losses;
 
   factory Record.fromJson(Map<String, dynamic> json) => Record(
-    wins: json["wins"],
-    losses: json["losses"],
-  );
+        wins: json["wins"],
+        losses: json["losses"],
+      );
 
   Map<String, dynamic> toJson() => {
-    "wins": wins,
-    "losses": losses,
-  };
+        "wins": wins,
+        "losses": losses,
+      };
 }
 
 class Result {
@@ -205,12 +216,12 @@ class Result {
   int gameWins;
 
   factory Result.fromJson(Map<String, dynamic> json) => Result(
-    outcome: json["outcome"],
-    gameWins: json["gameWins"],
-  );
+        outcome: json["outcome"],
+        gameWins: json["gameWins"],
+      );
 
   Map<String, dynamic> toJson() => {
-    "outcome": outcome,
-    "gameWins": gameWins,
-  };
+        "outcome": outcome,
+        "gameWins": gameWins,
+      };
 }
