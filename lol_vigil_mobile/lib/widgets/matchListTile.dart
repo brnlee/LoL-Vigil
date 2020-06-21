@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lolvigilmobile/models/models.dart';
+import 'package:lolvigilmobile/widgets/matchSummary.dart';
 import 'package:lolvigilmobile/widgets/teamTile.dart';
 
 class MatchListTile extends StatefulWidget {
@@ -16,6 +18,7 @@ class MatchListTile extends StatefulWidget {
 class _MatchListTileState extends State<MatchListTile> {
   @override
   Widget build(BuildContext context) {
+    Event event = widget._event;
     return InkWell(
       child: Column(
         children: <Widget>[
@@ -24,20 +27,24 @@ class _MatchListTileState extends State<MatchListTile> {
             child: Row(
               children: <Widget>[
                 Expanded(
+                  child: MatchSummary(event),
+                  flex: 1,
+                ),
+                Expanded(
+                  flex: 2,
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      TeamTile(widget._event.match.teams[0]),
-                      TeamTile(widget._event.match.teams[1])
+                      TeamTile(event.match.teams[0]),
+                      TeamTile(event.match.teams[1])
                     ],
                   ),
                 ),
                 Switch(
-                    value: widget._alarms[widget._event.match.id].isSet,
+                    value: widget._alarms[event.match.id].isSet,
                     onChanged: (bool val) => {
-                          setState(() => {
-                                widget._alarms[widget._event.match.id].isSet =
-                                    val
-                              })
+                          setState(() =>
+                              {widget._alarms[event.match.id].isSet = val})
                         })
               ],
             ),

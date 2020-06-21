@@ -14,6 +14,7 @@ class TeamTile extends StatelessWidget {
     Uri imageUri = Uri.http(
         Constants.AKAMAI_URL, '/image', {'resize': '50:', 'f': team.image});
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Padding(
           padding: EdgeInsets.symmetric(vertical: 3, horizontal: 10),
