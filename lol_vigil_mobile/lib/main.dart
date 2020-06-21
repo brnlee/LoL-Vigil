@@ -10,11 +10,6 @@ class App extends StatelessWidget {
       title: "LoL Vigil",
       home: MatchList(),
       theme: ThemeData.dark(),
-//      theme: ThemeData(
-//        brightness: Brightness.dark,
-//        primaryColor: Colors.lightBlue[800],
-//        accentColor: Colors.cyan[600],
-//      ),
     );
   }
 }

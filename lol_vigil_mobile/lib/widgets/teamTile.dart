@@ -12,7 +12,7 @@ class TeamTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Uri imageUri = Uri.http(
-        Constants.AKAMAI_URL, '/image', {'resize': '50:', 'f': team.image});
+        Constants.AKAMAI_URL, '/image', {'resize': '70:', 'f': team.image});
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
