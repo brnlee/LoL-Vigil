@@ -16,7 +16,7 @@ class ExpandedAlarmOptions extends StatefulWidget {
 class _ExpandedAlarmOptionsState extends State<ExpandedAlarmOptions> {
   @override
   Widget build(BuildContext context) {
-    if (widget.numMatches == 1) return _GameAlarmOptions();
+    if (widget.numMatches == 1) return _GameAlarmOptions(1);
     return Column(children: [
       for (int i = 1; i <= widget.numMatches; i++)
         ExpandableNotifier(
@@ -40,7 +40,7 @@ class _ExpandedAlarmOptionsState extends State<ExpandedAlarmOptions> {
                       ],
                     ),
                   ),
-                  expanded: _GameAlarmOptions(),
+                  expanded: _GameAlarmOptions(i),
                 ),
               ],
             ),
@@ -50,23 +50,37 @@ class _ExpandedAlarmOptionsState extends State<ExpandedAlarmOptions> {
   }
 }
 
-enum options { champSelectBegins, gameBegins }
+enum options { off, champSelectBegins, gameBegins }
 
 class _GameAlarmOptions extends StatefulWidget {
-  _GameAlarmOptions();
+  _GameAlarmOptions(this._gameNumber);
+
+  final int _gameNumber;
 
   @override
   _GameAlarmOptionsState createState() => _GameAlarmOptionsState();
 }
 
 class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
-  options _option = options.champSelectBegins;
+  options _option;
   double _delay = 0;
 
   @override
   Widget build(BuildContext context) {
+    _option = _option ?? (widget._gameNumber == 1 ? options.champSelectBegins : options.off);
     return Column(
       children: <Widget>[
+        RadioListTile(
+          title: const Text('Off'),
+          value: options.off,
+          groupValue: _option,
+          dense: true,
+          onChanged: (options value) {
+            setState(() {
+              _option = value;
+            });
+          },
+        ),
         RadioListTile(
           title: const Text('Champion Select Begins'),
           value: options.champSelectBegins,
@@ -101,7 +115,7 @@ class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
                     max: 20,
                     divisions: 20,
                     value: _delay,
-                    onChanged: (double value) {
+                    onChanged: _option == options.off ? null : (double value) {
                       setState(() => _delay = value);
                     },
                   ),

@@ -5,11 +5,11 @@ import 'package:lolvigilmobile/services/webservice.dart';
 import 'matchListTile.dart';
 import 'package:intl/intl.dart';
 
-class MatchListState extends State<MatchList> {
+class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   List<Event> _events = List<Event>();
   Map<String, Alarm> _alarms = Map<String, Alarm>();
   DateTime _lastMatchDateTime;
-  int _page = 1;
+  int _nextPage = 1;
 
   @override
   void initState() {
@@ -18,12 +18,12 @@ class MatchListState extends State<MatchList> {
   }
 
   void _populateEvents([int requestedPage]) {
-    int page = requestedPage ?? _page + 1;
+    int page = requestedPage ?? _nextPage;
     Webservice().load(Schedule.all, page).then((events) {
       setState(() => {
             _events = page == 1 ? events : _events + events,
             _alarms = _setAlarms(events),
-            _page = page + 1
+            _nextPage = page + 1
           });
     });
   }
@@ -66,7 +66,7 @@ class MatchListState extends State<MatchList> {
 
   @override
   Widget build(BuildContext context) {
-    print('NEXT PAGE $_page');
+    print('NEXT PAGE $_nextPage');
     return Scaffold(
       appBar: AppBar(
         title: Text('Games'),
