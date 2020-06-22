@@ -9,6 +9,7 @@ class MatchListState extends State<MatchList> {
   List<Event> _events = List<Event>();
   Map<String, Alarm> _alarms = Map<String, Alarm>();
   DateTime _lastMatchDateTime;
+  int _page = 1;
 
   @override
   void initState() {
@@ -16,9 +17,14 @@ class MatchListState extends State<MatchList> {
     _populateEvents();
   }
 
-  void _populateEvents() {
-    Webservice().load(Schedule.all).then((events) {
-      setState(() => {_events = events, _alarms = _setAlarms(events)});
+  void _populateEvents([int requestedPage]) {
+    int page = requestedPage ?? _page + 1;
+    Webservice().load(Schedule.all, page).then((events) {
+      setState(() => {
+            _events = page == 1 ? events : _events + events,
+            _alarms = _setAlarms(events),
+            _page = page + 1
+          });
     });
   }
 
@@ -60,6 +66,7 @@ class MatchListState extends State<MatchList> {
 
   @override
   Widget build(BuildContext context) {
+    print('NEXT PAGE $_page');
     return Scaffold(
       appBar: AppBar(
         title: Text('Games'),
@@ -70,7 +77,7 @@ class MatchListState extends State<MatchList> {
                 itemCount: _events.length,
                 itemBuilder: _buildItemsForListView,
               ),
-              onRefresh: () async => _populateEvents(),
+              onRefresh: () async => _populateEvents(1),
             )
           : Center(child: CircularProgressIndicator()),
       drawer: Drawer(),

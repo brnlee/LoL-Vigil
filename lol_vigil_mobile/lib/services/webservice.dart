@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
 
@@ -12,10 +10,10 @@ class Resource<T> {
 }
 
 class Webservice {
-  Future<T> load<T>(Resource<T> resource) async {
-    print('GETTING ' + resource.url);
+  Future<T> load<T>(Resource<T> resource, int page) async {
+    print('GETTING ' + '${resource.url}?page=$page');
 //    try {
-    final response = await http.get(resource.url).timeout(Duration(seconds: 5));
+    final response = await http.get('${resource.url}?page=$page').timeout(Duration(seconds: 5));
     if (response.statusCode == 200) {
       print('OK');
       return resource.parse(response);
