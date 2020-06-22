@@ -64,7 +64,8 @@ class _MatchListTileState extends State<MatchListTile> {
                   ],
                 ),
               ),
-              expanded: ExpandedAlarmOptions(widget._alarms[event.match.id]),
+              expanded: ExpandedAlarmOptions(widget._alarms[event.match.id],
+                  widget._event.match.strategy.count),
             ),
             Divider()
           ],
