@@ -19,11 +19,12 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
 
   void _populateEvents([int requestedPage]) {
     int page = requestedPage ?? _nextPage;
-    Webservice().load(Schedule.all, page).then((events) {
+    if (page == -1) return;
+    Webservice().load(Schedule.all, page).then((schedule) {
       setState(() => {
-            _events = page == 1 ? events : _events + events,
-            _alarms = _setAlarms(events),
-            _nextPage = page + 1
+            _events = page == 1 ? schedule.events : _events + schedule.events,
+            _alarms = _setAlarms(_events),
+            _nextPage = schedule.hasNextPage ? page + 1 : -1
           });
     });
   }
@@ -37,7 +38,11 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   }
 
   Widget _buildItemsForListView(BuildContext context, int index) {
-    if (index == 0) _lastMatchDateTime = null;
+    if (index == _events.length) {
+      return _buildProgressIndicator();
+    } else if (index == 0) {
+      _lastMatchDateTime = null;
+    }
     DateTime time = _events[index].startTime.toLocal();
     Widget matchTile = MatchListTile(_events[index], _alarms);
     if (_lastMatchDateTime == null || _lastMatchDateTime.day != time.day) {
@@ -67,6 +72,13 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     print('NEXT PAGE $_nextPage');
+    ScrollController _scrollController = ScrollController();
+    _scrollController.addListener(() {
+      if (_scrollController.position.maxScrollExtent ==
+          _scrollController.position.pixels) {
+        _populateEvents();
+      }
+    });
     return Scaffold(
       appBar: AppBar(
         title: Text('Games'),
@@ -74,7 +86,10 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
       body: _events.length != 0
           ? RefreshIndicator(
               child: ListView.builder(
-                itemCount: _events.length,
+                controller: _scrollController,
+                // Add 1 for progress indicator
+                itemCount:
+                    _nextPage == -1 ? _events.length : _events.length + 1,
                 itemBuilder: _buildItemsForListView,
               ),
               onRefresh: () async => _populateEvents(1),
@@ -88,4 +103,16 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
 class MatchList extends StatefulWidget {
   @override
   createState() => MatchListState();
+}
+
+Widget _buildProgressIndicator() {
+  return new Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: new Center(
+      child: new Opacity(
+        opacity: 1.0,
+        child: new CircularProgressIndicator(),
+      ),
+    ),
+  );
 }

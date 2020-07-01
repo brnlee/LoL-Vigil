@@ -13,7 +13,7 @@ class Webservice {
   Future<T> load<T>(Resource<T> resource, int page) async {
     print('GETTING ' + '${resource.url}?page=$page');
 //    try {
-    final response = await http.get('${resource.url}?page=$page').timeout(Duration(seconds: 5));
+    final response = await http.get('${resource.url}?page=$page').timeout(Duration(seconds: 10));
     if (response.statusCode == 200) {
       print('OK');
       return resource.parse(response);

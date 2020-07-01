@@ -20,6 +20,7 @@ class _ExpandedAlarmOptionsState extends State<ExpandedAlarmOptions> {
     return Column(children: [
       for (int i = 1; i <= widget.numMatches; i++)
         ExpandableNotifier(
+          initialExpanded: i == 1 ? true : false,
           child: ScrollOnExpand(
             child: Column(
               children: <Widget>[

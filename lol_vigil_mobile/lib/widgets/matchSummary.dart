@@ -10,6 +10,10 @@ class MatchSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     int hour = event.startTime.toLocal().hour;
+    String gameType = event.blockName.toLowerCase().contains("final")
+        ? '${event.blockName} - '
+        : '';
+    gameType += 'BO${event.match.strategy.count}';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -21,8 +25,7 @@ class MatchSummary extends StatelessWidget {
                 padding: EdgeInsets.only(right: 5),
                 child: Text(
                   (hour <= 12 ? hour : hour % 12).toString(),
-                  style: TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
               ),
               Text(hour < 12 ? 'AM' : 'PM'),
@@ -35,7 +38,7 @@ class MatchSummary extends StatelessWidget {
           style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor),
         ),
         Text(
-          'BO${event.match.strategy.count}',
+          gameType,
           style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor),
         )
       ],
