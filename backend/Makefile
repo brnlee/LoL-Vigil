@@ -52,6 +52,10 @@ get_schedule: getSchedule
 	env GOOS=linux GOARCH=amd64 go build -o get_schedule ./getSchedule
 	$(ZIPPER) -o get_schedule.zip get_schedule
 
+get_leagues: getLeagues
+	env GOOS=linux GOARCH=amd64 go build -o get_leagues ./getLeagues
+	$(ZIPPER) -o get_leagues.zip get_leagues
+
 .PHONY: testUpdateSchedule
 testUpdateSchedule: update_schedule
 	sam local invoke 'UpdateScheduleFunction' --docker-network lambda-local
@@ -60,8 +64,12 @@ testUpdateSchedule: update_schedule
 testGetSchedule: get_schedule
 	sam local invoke 'GetScheduleFunction' --docker-network lambda-local
 
+.PHONY: testGetLeagues
+testGetLeagues: get_leagues
+	sam local invoke 'GetLeaguesFunction' --docker-network lambda-local
+
 .PHONY: build
-build: update_schedule get_schedule
+build: update_schedule get_schedule getLeagues
 
 .PHONY: run
 run: build

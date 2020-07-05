@@ -103,7 +103,9 @@ func pullSchedule(pageToken string) ([]byte, error) {
 	}
 
 	req.Header.Add("x-api-key", APIKey)
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
