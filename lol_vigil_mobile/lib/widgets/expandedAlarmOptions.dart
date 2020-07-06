@@ -1,7 +1,7 @@
 import 'package:expandable/expandable.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:lolvigilmobile/models/models.dart';
+import 'package:lolvigilmobile/models/schedule.dart';
 
 class ExpandedAlarmOptions extends StatefulWidget {
   ExpandedAlarmOptions(this.alarm, this.numMatches);

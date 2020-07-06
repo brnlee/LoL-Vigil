@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:lolvigilmobile/models/models.dart';
+import 'package:lolvigilmobile/models/schedule.dart';
 import 'package:lolvigilmobile/widgets/expandedAlarmOptions.dart';
 import 'package:lolvigilmobile/widgets/matchSummary.dart';
 import 'package:lolvigilmobile/widgets/teamTile.dart';

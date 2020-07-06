@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:lolvigilmobile/models/models.dart';
+import 'package:lolvigilmobile/models/schedule.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lolvigilmobile/utils/constants.dart';
 

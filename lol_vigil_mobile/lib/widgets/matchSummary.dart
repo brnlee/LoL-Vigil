@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:lolvigilmobile/models/models.dart';
+import 'package:lolvigilmobile/models/schedule.dart';
 
 class MatchSummary extends StatelessWidget {
   MatchSummary(this.event);
@@ -34,7 +34,7 @@ class MatchSummary extends StatelessWidget {
           ),
         ),
         Text(
-          event.league.name,
+          event.tournament.name,
           style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor),
         ),
         Text(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:lolvigilmobile/models/models.dart';
+import 'package:lolvigilmobile/models/leagues.dart';
+import 'package:lolvigilmobile/models/schedule.dart';
 import 'package:lolvigilmobile/services/webservice.dart';
+import 'package:lolvigilmobile/widgets/leaguesDrawer.dart';
 import 'matchListTile.dart';
 import 'package:intl/intl.dart';
 
@@ -10,17 +12,42 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   Map<String, Alarm> _alarms = Map<String, Alarm>();
   DateTime _lastMatchDateTime;
   int _nextPage = 1;
+  ScrollController _scrollController = ScrollController();
+  List<League> _leagues = List<League>();
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _populateEvents();
+    _populateLeagues();
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.maxScrollExtent ==
+          _scrollController.position.pixels) {
+        _populateEvents();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _populateLeagues() {
+    Webservice().load(LeaguesResponse.all).then((leagues) {
+      setState(() => {
+            _leagues = leagues,
+          });
+    });
   }
 
   void _populateEvents([int requestedPage]) {
     int page = requestedPage ?? _nextPage;
     if (page == -1) return;
-    Webservice().load(Schedule.all, page).then((schedule) {
+    Webservice().load(Schedule.get(page)).then((schedule) {
       setState(() => {
             _events = page == 1 ? schedule.events : _events + schedule.events,
             _alarms = _setAlarms(_events),
@@ -69,19 +96,32 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     return matchTile;
   }
 
+  _scrollToTop() {
+    setState(() => {_events = List<Event>()});
+//    _scrollController
+//        .animateTo(_scrollController.position.minScrollExtent,
+//            duration: Duration(milliseconds: 500), curve: Curves.easein)
+//        .then((_) => _populateEvents(1));
+    _populateEvents(1);
+  }
+
   @override
   Widget build(BuildContext context) {
-    print('NEXT PAGE $_nextPage');
-    ScrollController _scrollController = ScrollController();
-    _scrollController.addListener(() {
-      if (_scrollController.position.maxScrollExtent ==
-          _scrollController.position.pixels) {
-        _populateEvents();
-      }
-    });
+    print('BUILDING...\nNEXT PAGE $_nextPage');
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Games'),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () => _scrollToTop(),
+          ),
+          IconButton(
+            icon: Icon(Icons.more_vert),
+            onPressed: () => null,
+          )
+        ],
       ),
       body: _events.length != 0
           ? RefreshIndicator(
@@ -95,7 +135,7 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
               onRefresh: () async => _populateEvents(1),
             )
           : Center(child: CircularProgressIndicator()),
-      drawer: Drawer(),
+      drawer: LeaguesDrawer(_leagues),
     );
   }
 }
