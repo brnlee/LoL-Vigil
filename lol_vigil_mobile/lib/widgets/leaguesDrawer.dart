@@ -45,7 +45,7 @@ class LeaguesDrawer extends StatelessWidget {
   }
 }
 
-class LeagueCheckBoxTile extends StatefulWidget {
+class LeagueCheckBoxTile extends StatelessWidget {
   LeagueCheckBoxTile(this.league, this.isChecked, this.onChanged);
 
   final League league;
@@ -53,32 +53,22 @@ class LeagueCheckBoxTile extends StatefulWidget {
   final ValueChanged<String> onChanged;
 
   @override
-  createState() => LeagueCheckBoxTileState();
-}
-
-class LeagueCheckBoxTileState extends State<LeagueCheckBoxTile> {
-  bool isChecked = true;
-
-  @override
   Widget build(BuildContext context) {
     return CheckboxListTile(
-      title: Text(widget.league.name),
+      title: Text(league.name),
       secondary: CachedNetworkImage(
         placeholder: (context, url) => SizedBox(
           child: CircularProgressIndicator(),
           width: 30,
           height: 30,
         ),
-        imageUrl: widget.league.image,
+        imageUrl: league.image,
         height: 30,
         fit: BoxFit.fitHeight,
       ),
-      value: widget.isChecked,
+      value: isChecked,
       onChanged: (bool value) {
-        widget.onChanged(widget.league.name);
-        setState(() {
-          isChecked = !isChecked;
-        });
+        onChanged(league.name);
       },
     );
   }
