@@ -14,6 +14,7 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   int _nextPage = 1;
   ScrollController _scrollController = ScrollController();
   List<League> _leagues = List<League>();
+  Map<String, bool> _leaguesToShow;
   bool isLoading = false;
 
   @override
@@ -22,12 +23,11 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     _populateEvents();
     _populateLeagues();
 
-    _scrollController.addListener(() {
-      if (_scrollController.position.maxScrollExtent ==
-          _scrollController.position.pixels) {
-        _populateEvents();
-      }
-    });
+//    _scrollController.addListener(() {
+//      if (_scrollController.position.maxScrollExtent == _scrollController.position.pixels) {
+//        _populateEvents();
+//      }
+//    });
   }
 
   @override
@@ -40,6 +40,7 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     Webservice().load(LeaguesResponse.all).then((leagues) {
       setState(() => {
             _leagues = leagues,
+            _leaguesToShow = {for (var l in leagues) l.name: true}
           });
     });
   }
@@ -58,20 +59,19 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
 
   Map<String, Alarm> _setAlarms(List<Event> events) {
     print('Setting Alarms');
-    return Map.fromIterable(
-        events.map((event) => _alarms[event.match.id] ?? Alarm(event.match.id)),
-        key: (alarm) => alarm.matchID,
-        value: (alarm) => alarm);
+    return Map.fromIterable(events.map((event) => _alarms[event.match.id] ?? Alarm(event.match.id)),
+        key: (alarm) => alarm.matchID, value: (alarm) => alarm);
   }
 
-  Widget _buildItemsForListView(BuildContext context, int index) {
-    if (index == _events.length) {
+  Widget _buildItemsForListView(BuildContext context, int index, List<Event> events) {
+    if (index == events.length) {
+      _populateEvents(_nextPage);
       return _buildProgressIndicator();
-    } else if (index == 0) {
-      _lastMatchDateTime = null;
     }
-    DateTime time = _events[index].startTime.toLocal();
-    Widget matchTile = MatchListTile(_events[index], _alarms);
+    else if (index == 0) _lastMatchDateTime = null;
+
+    DateTime time = events[index].startTime.toLocal();
+    Widget matchTile = MatchListTile(events[index], _alarms);
     if (_lastMatchDateTime == null || _lastMatchDateTime.day != time.day) {
       String formattedDate = DateFormat('EEEE - LLLL dd').format(time);
       matchTile = Column(
@@ -93,10 +93,13 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
       );
     }
     _lastMatchDateTime = time;
+
+    if(index == _events.length) print("LAST");
+
     return matchTile;
   }
 
-  _scrollToTop() {
+  void _scrollToTop() {
     setState(() => {_events = List<Event>()});
 //    _scrollController
 //        .animateTo(_scrollController.position.minScrollExtent,
@@ -105,9 +108,14 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     _populateEvents(1);
   }
 
+  void _handleLeagueFilterChange(Map<String, bool> leaguesToShow) {
+    setState(() => _leaguesToShow = leaguesToShow);
+  }
+
   @override
   Widget build(BuildContext context) {
     print('BUILDING...\nNEXT PAGE $_nextPage');
+    List<Event> filteredEvents = _events.where((e) => _leaguesToShow[e.tournament.name]).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -128,14 +136,13 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
               child: ListView.builder(
                 controller: _scrollController,
                 // Add 1 for progress indicator
-                itemCount:
-                    _nextPage == -1 ? _events.length : _events.length + 1,
-                itemBuilder: _buildItemsForListView,
+                itemCount: _nextPage == -1 ? filteredEvents.length : filteredEvents.length + 1,
+                itemBuilder: (context, index) =>_buildItemsForListView(context, index, filteredEvents),
               ),
               onRefresh: () async => _populateEvents(1),
             )
           : Center(child: CircularProgressIndicator()),
-      drawer: LeaguesDrawer(_leagues),
+      drawer: LeaguesDrawer(_leagues, _leaguesToShow, _handleLeagueFilterChange),
     );
   }
 }

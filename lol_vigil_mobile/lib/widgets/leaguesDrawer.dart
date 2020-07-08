@@ -4,9 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:lolvigilmobile/models/leagues.dart';
 
 class LeaguesDrawer extends StatelessWidget {
-  LeaguesDrawer(this._leagues);
+  LeaguesDrawer(this._leagues, this._leaguesToShow, this._onChanged);
 
   final List<League> _leagues;
+  final Map<String, bool> _leaguesToShow;
+  final ValueChanged<Map<String, bool>> _onChanged;
+
+  void _handleCheckBoxValueChange(String name) {
+    _leaguesToShow[name] = !_leaguesToShow[name];
+    _onChanged(_leaguesToShow);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,10 +25,10 @@ class LeaguesDrawer extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: DrawerHeader(
             child: Text(
-                "Filter Displayed Leagues",
-                style: TextStyle(fontSize: 16),
-                textAlign: TextAlign.left,
-              ),
+              "Filter Displayed Leagues",
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.left,
+            ),
           ),
         ),
         Expanded(
@@ -29,7 +36,8 @@ class LeaguesDrawer extends StatelessWidget {
               padding: EdgeInsets.all(0),
               itemCount: _leagues.length,
               itemBuilder: (context, index) {
-                return LeagueCheckBoxTile(_leagues[index]);
+                return LeagueCheckBoxTile(
+                    _leagues[index], _leaguesToShow[_leagues[index].name], _handleCheckBoxValueChange);
               }),
         )
       ],
@@ -38,9 +46,11 @@ class LeaguesDrawer extends StatelessWidget {
 }
 
 class LeagueCheckBoxTile extends StatefulWidget {
-  LeagueCheckBoxTile(this.league);
+  LeagueCheckBoxTile(this.league, this.isChecked, this.onChanged);
 
   final League league;
+  final bool isChecked;
+  final ValueChanged<String> onChanged;
 
   @override
   createState() => LeagueCheckBoxTileState();
@@ -63,8 +73,9 @@ class LeagueCheckBoxTileState extends State<LeagueCheckBoxTile> {
         height: 30,
         fit: BoxFit.fitHeight,
       ),
-      value: isChecked,
+      value: widget.isChecked,
       onChanged: (bool value) {
+        widget.onChanged(widget.league.name);
         setState(() {
           isChecked = !isChecked;
         });
