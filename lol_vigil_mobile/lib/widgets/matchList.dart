@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:hive/hive.dart';
 import 'package:lolvigilmobile/models/leagues.dart';
 import 'package:lolvigilmobile/models/schedule.dart';
 import 'package:lolvigilmobile/services/webservice.dart';
@@ -9,15 +10,14 @@ import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 
 class MatchListState extends State<MatchList> with WidgetsBindingObserver {
+  int _nextPage = 1;
   List<Event> _events = List<Event>();
+  List<League> _leagues = List<League>();
+  Set<String> _leaguesToShow = Set();
   Map<String, Alarm> _alarms = Map<String, Alarm>();
   DateTime _lastMatchDateTime;
-  int _nextPage = 1;
   ScrollController _scrollController = ScrollController();
-  List<League> _leagues = List<League>();
-  Map<String, bool> _leaguesToShow = Map();
   bool isLoading = false;
-  List<Event> _filteredEvents;
 
   @override
   void initState() {
@@ -25,11 +25,11 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     _populateEvents();
     _populateLeagues();
 
-    _scrollController.addListener(() {
-      if (_scrollController.position.maxScrollExtent <= _scrollController.position.pixels) {
+//    _scrollController.addListener(() {
+//      if (_scrollController.position.maxScrollExtent <= _scrollController.position.pixels) {
 //        _populateEvents();
-      }
-    });
+//      }
+//    });
   }
 
   @override
@@ -39,17 +39,12 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   }
 
   void _populateLeagues() {
-    print("POPULATE LEAGUES");
     Webservice().load(LeaguesResponse.all).then((leagues) {
-      setState(() => {
-            _leagues = leagues,
-            _leaguesToShow = {for (var l in leagues) l.name: true}
-          });
+      setState(() => {_leagues = leagues});
     });
   }
 
   void _populateEvents([int requestedPage]) {
-    print("POPULATING EVENTS");
     int page = requestedPage ?? _nextPage;
     if (page == -1) return;
     Webservice().load(Schedule.get(page)).then((schedule) {
@@ -62,14 +57,13 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   }
 
   Map<String, Alarm> _setAlarms(List<Event> events) {
-    print('Setting Alarms');
     return Map.fromIterable(events.map((event) => _alarms[event.match.id] ?? Alarm(event.match.id)),
         key: (alarm) => alarm.matchID, value: (alarm) => alarm);
   }
 
   Widget _buildItemsForListView(BuildContext context, int index, List<Event> events) {
     if (index == events.length) {
-      _populateEvents(_nextPage);
+      _populateEvents();
       return _buildProgressIndicator();
     } else if (index == 0) _lastMatchDateTime = null;
 
@@ -105,56 +99,44 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     _populateEvents(1);
   }
 
-  void _handleLeagueFilterChange(Map<String, bool> newLeaguesToShow) {
-    if (!MapEquality().equals(_leaguesToShow, newLeaguesToShow)) {
-      _leaguesToShow = newLeaguesToShow;
-      isLoading = true;
-    }
-  }
-
   Widget _buildProgressIndicator() {
+
     return new Padding(
       padding: const EdgeInsets.all(8.0),
       child: new Center(
-        child: new Opacity(
-          opacity: 1.0,
-          child: new CircularProgressIndicator(),
-        ),
+        child: new CircularProgressIndicator(),
       ),
     );
   }
 
-  Future<List<Event>> filterEvents() async {
-    return Future(() => _events.length > 0 && _leaguesToShow != null
-        ? _events.where((e) => _leaguesToShow[e.tournament.name] ?? true).toList()
-        : _events);
+  Set<String> getFilteredLeagueValues() {
+    Box leaguesBox = Hive.box('Leagues');
+    return Set.from(leaguesBox.keys.where((league) => leaguesBox.get(league, defaultValue: true)));
   }
 
-  setIsLoading() async {
+  updateFilteredLeagues() async {
+    print("updating filtered leagues");
+    Set<String> leaguesToShow = getFilteredLeagueValues();
+    if (SetEquality().equals(_leaguesToShow, leaguesToShow)) return;
+
     setState(() {
       isLoading = true;
     });
+
     Future.delayed(
         Duration(seconds: 1),
-        () => filterEvents().then((events) => {
-              setState(() {
-                isLoading = false;
-                _filteredEvents = events;
-              })
+        () => setState(() {
+              isLoading = false;
+              _leaguesToShow = leaguesToShow;
             }));
   }
 
   @override
   Widget build(BuildContext context) {
-    print('BUILDING...\nNEXT PAGE $_nextPage');
-    List<Event> filteredEvents = _filteredEvents ??
-        (_events.length > 0 && _leaguesToShow != null
-            ? _events.where((e) => _leaguesToShow[e.tournament.name] ?? true).toList()
-            : _events);
-    _filteredEvents = null;
-//    setState(() {
-//      isLoading = false;
-//    });
+    print('NEXT PAGE $_nextPage');
+    List<Event> filteredEvents = _events.length > 0 && _leaguesToShow.length > 0
+        ? _events.where((e) => _leaguesToShow.contains(e.tournament.name)).toList()
+        : _events;
 
     return Scaffold(
       appBar: AppBar(
@@ -175,7 +157,7 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
               child: Focus(
                   autofocus: true,
                   onFocusChange: (hasFocus) {
-                    if (hasFocus && isLoading) setIsLoading();
+                    if (hasFocus && !isLoading) updateFilteredLeagues();
                   },
                   child: Stack(
                     children: <Widget>[
@@ -194,13 +176,13 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
                           itemCount: _nextPage == -1 ? filteredEvents.length : filteredEvents.length + 1,
                           itemBuilder: (context, index) => _buildItemsForListView(context, index, filteredEvents),
                         ),
-                      ),
+                      )
                     ],
                   )),
               onRefresh: () async => _populateEvents(1),
             )
-          : Center(child: CircularProgressIndicator()),
-      drawer: LeaguesDrawer(_leagues, _leaguesToShow, _handleLeagueFilterChange),
+          : _buildProgressIndicator(),
+      drawer: LeaguesDrawer(_leagues, Hive.box('Leagues')),
     );
   }
 }

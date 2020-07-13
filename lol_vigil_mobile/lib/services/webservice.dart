@@ -13,11 +13,9 @@ class Webservice {
   Future<T> load<T>(Resource<T> resource) async {
     print('GETTING ' + '${resource.url}');
     final response = await http.get(resource.url).timeout(Duration(seconds: 10));
-    if (response.statusCode == 200) {
-      print('OK');
+    if (response.statusCode == 200)
       return resource.parse(response);
-    } else {
+    else
       throw Exception('Failed to load data!');
-    }
   }
 }

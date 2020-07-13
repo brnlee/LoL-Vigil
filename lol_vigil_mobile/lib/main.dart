@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:lolvigilmobile/widgets/matchList.dart';
-
-void main() => runApp(App());
+import 'package:hive_flutter/hive_flutter.dart';
 
 class App extends StatelessWidget {
   @override
@@ -12,4 +12,11 @@ class App extends StatelessWidget {
       theme: ThemeData.dark(),
     );
   }
+}
+
+void main() async {
+  await Hive.initFlutter();
+  await Hive.openBox('Leagues');
+  await Hive.openLazyBox('MatchAlarms');
+  runApp(App());
 }
