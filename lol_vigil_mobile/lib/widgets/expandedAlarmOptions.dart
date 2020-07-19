@@ -1,12 +1,12 @@
 import 'package:expandable/expandable.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:lolvigilmobile/models/schedule.dart';
+import 'package:lolvigilmobile/models/MatchAlarm.dart';
 
 class ExpandedAlarmOptions extends StatefulWidget {
   ExpandedAlarmOptions(this.alarm, this.numMatches);
 
-  final Alarm alarm;
+  final MatchAlarm alarm;
   final int numMatches;
 
   @override
@@ -25,8 +25,7 @@ class _ExpandedAlarmOptionsState extends State<ExpandedAlarmOptions> {
             child: Column(
               children: <Widget>[
                 ExpandablePanel(
-                  theme: ExpandableThemeData(
-                      iconColor: Theme.of(context).hintColor, hasIcon: false),
+                  theme: ExpandableThemeData(iconColor: Theme.of(context).hintColor, hasIcon: false),
                   header: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     child: Row(
@@ -63,20 +62,20 @@ class _GameAlarmOptions extends StatefulWidget {
 }
 
 class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
-  options _option;
+  Trigger _option;
   double _delay = 0;
 
   @override
   Widget build(BuildContext context) {
-    _option = _option ?? (widget._gameNumber == 1 ? options.champSelectBegins : options.off);
+    _option = _option ?? (widget._gameNumber == 1 ? Trigger.ChampionSelectBegins : Trigger.Off);
     return Column(
       children: <Widget>[
         RadioListTile(
           title: const Text('Off'),
-          value: options.off,
+          value: Trigger.Off,
           groupValue: _option,
           dense: true,
-          onChanged: (options value) {
+          onChanged: (Trigger value) {
             setState(() {
               _option = value;
             });
@@ -84,10 +83,10 @@ class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
         ),
         RadioListTile(
           title: const Text('Champion Select Begins'),
-          value: options.champSelectBegins,
+          value: Trigger.ChampionSelectBegins,
           groupValue: _option,
           dense: true,
-          onChanged: (options value) {
+          onChanged: (Trigger value) {
             setState(() {
               _option = value;
             });
@@ -95,10 +94,10 @@ class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
         ),
         RadioListTile(
           title: const Text('Game Begins'),
-          value: options.gameBegins,
+          value: Trigger.GameBegins,
           groupValue: _option,
           dense: true,
-          onChanged: (options value) {
+          onChanged: (Trigger value) {
             setState(() {
               _option = value;
             });
@@ -116,9 +115,11 @@ class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
                     max: 20,
                     divisions: 20,
                     value: _delay,
-                    onChanged: _option == options.off ? null : (double value) {
-                      setState(() => _delay = value);
-                    },
+                    onChanged: _option == Trigger.Off
+                        ? null
+                        : (double value) {
+                            setState(() => _delay = value);
+                          },
                   ),
                 )
               ],

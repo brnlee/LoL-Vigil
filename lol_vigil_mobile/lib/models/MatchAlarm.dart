@@ -3,33 +3,35 @@ part 'MatchAlarm.g.dart';
 
 @HiveType(typeId: 1)
 class MatchAlarm {
-  MatchAlarm(this.matchID, this.isOn, [this.alarms]);
+  MatchAlarm(this.matchID, this.numGames);
 
   @HiveField(0)
   String matchID;
   @HiveField(1)
-  bool isOn;
+  bool isOn = false;
   @HiveField(2)
-  List<GameAlarm> alarms;
+  int numGames;
+  @HiveField(3)
+  HiveList alarms;
 
   @override
   String toString() {
     String str = "$matchID\t$isOn\n";
-    alarms.forEach((alarm) => str += "\t${alarm.toString()}\n");
+    if (alarms != null) alarms.forEach((alarm) => str += "\t${alarm.toString()}\n");
     return str;
   }
 }
 
 @HiveType(typeId: 2)
-class GameAlarm {
-  GameAlarm(this.gameNumber, this.alarmTrigger, this.delay);
+class GameAlarm extends HiveObject {
+  GameAlarm(this.gameNumber, [this.alarmTrigger, this.delay]);
 
   @HiveField(0)
   int gameNumber;
   @HiveField(1)
-  Trigger alarmTrigger;
+  Trigger alarmTrigger = Trigger.Off;
   @HiveField(2)
-  int delay;
+  int delay = 0;
 
   @override
   String toString() => "$gameNumber\t$alarmTrigger\t$delay";

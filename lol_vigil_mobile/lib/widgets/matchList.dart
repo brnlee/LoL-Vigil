@@ -35,11 +35,16 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   @override
   void dispose() {
     _scrollController.dispose();
+    Hive.close();
     super.dispose();
   }
 
   void _populateLeagues() {
     Webservice().load(LeaguesResponse.all).then((leagues) {
+      Box leaguesBox = Hive.box('Leagues');
+      leagues.forEach((league) {
+        if (!leaguesBox.containsKey(league.name)) leaguesBox.put(league.name, true);
+      });
       setState(() => {_leagues = leagues});
     });
   }
@@ -61,37 +66,27 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
         key: (alarm) => alarm.matchID, value: (alarm) => alarm);
   }
 
-  Widget _buildItemsForListView(BuildContext context, int index, List<Event> events) {
-    if (index == events.length) {
+  Widget _buildItemsForListView(BuildContext context, int index, List dateSeperatedEvents) {
+    if (index == dateSeperatedEvents.length) {
       _populateEvents();
       return _buildProgressIndicator();
-    } else if (index == 0) _lastMatchDateTime = null;
-
-    DateTime time = events[index].startTime.toLocal();
-    bool show = _lastMatchDateTime == null || _lastMatchDateTime.day != time.day;
-    _lastMatchDateTime = time;
-
-    if (show) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 0, 5),
-            child: Text(
-              DateFormat('EEEE - LLLL dd').format(time),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+    } else if (dateSeperatedEvents[index] is String) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 0, 5),
+          child: Text(
+            dateSeperatedEvents[index],
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          Divider(),
-          MatchListTile(events[index], _alarms)
-        ],
-      );
+        ),
+        Divider(),
+      ]);
     }
 
-    return MatchListTile(events[index], _alarms);
+    return MatchListTile(dateSeperatedEvents[index]);
   }
 
   void _scrollToTop() {
@@ -100,7 +95,6 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   }
 
   Widget _buildProgressIndicator() {
-
     return new Padding(
       padding: const EdgeInsets.all(8.0),
       child: new Center(
@@ -115,9 +109,10 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   }
 
   updateFilteredLeagues() async {
-    print("updating filtered leagues");
+    print('FILTERING LEAGUES');
     Set<String> leaguesToShow = getFilteredLeagueValues();
     if (SetEquality().equals(_leaguesToShow, leaguesToShow)) return;
+    print(leaguesToShow);
 
     setState(() {
       isLoading = true;
@@ -137,6 +132,16 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     List<Event> filteredEvents = _events.length > 0 && _leaguesToShow.length > 0
         ? _events.where((e) => _leaguesToShow.contains(e.tournament.name)).toList()
         : _events;
+
+    List dateSeperatedEvents = [];
+    DateTime prevEventTime;
+    filteredEvents.forEach((event) {
+      DateTime time = event.startTime.toLocal();
+      if (prevEventTime == null || prevEventTime.day != time.day)
+        dateSeperatedEvents.add(DateFormat('EEEE - LLLL d').format(time));
+      dateSeperatedEvents.add(event);
+      prevEventTime = time;
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -173,8 +178,8 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
                           cacheExtent: 2.0,
                           controller: _scrollController,
                           // Add 1 for progress indicator
-                          itemCount: _nextPage == -1 ? filteredEvents.length : filteredEvents.length + 1,
-                          itemBuilder: (context, index) => _buildItemsForListView(context, index, filteredEvents),
+                          itemCount: _nextPage == -1 ? dateSeperatedEvents.length : dateSeperatedEvents.length + 1,
+                          itemBuilder: (context, index) => _buildItemsForListView(context, index, dateSeperatedEvents),
                         ),
                       )
                     ],

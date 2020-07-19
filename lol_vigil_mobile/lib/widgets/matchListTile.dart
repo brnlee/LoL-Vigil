@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:hive/hive.dart';
+import 'package:lolvigilmobile/models/MatchAlarm.dart';
 import 'package:lolvigilmobile/models/schedule.dart';
 import 'package:lolvigilmobile/widgets/expandedAlarmOptions.dart';
 import 'package:lolvigilmobile/widgets/matchSummary.dart';
@@ -7,16 +9,31 @@ import 'package:lolvigilmobile/widgets/teamTile.dart';
 import 'package:expandable/expandable.dart';
 
 class MatchListTile extends StatefulWidget {
-  MatchListTile(this._event, this._alarms, {Key key}) : super(key: key);
+  MatchListTile(this._event, {Key key}) : super(key: key);
 
   final Event _event;
-  final Map<String, Alarm> _alarms;
 
   @override
   _MatchListTileState createState() => _MatchListTileState();
 }
 
 class _MatchListTileState extends State<MatchListTile> {
+  MatchAlarm matchAlarm;
+  Box alarmsBox;
+
+  @override
+  void initState() {
+    alarmsBox = Hive.box('MatchAlarms');
+    String matchID = widget._event.match.id;
+    if (!alarmsBox.containsKey(matchID)) {
+      matchAlarm = MatchAlarm(matchID, widget._event.match.strategy.count);
+      alarmsBox.put(matchID, matchAlarm);
+    } else {
+      matchAlarm = alarmsBox.get(matchID);
+    }
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     Event event = widget._event;
@@ -38,21 +55,16 @@ class _MatchListTileState extends State<MatchListTile> {
                       flex: 2,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          TeamTile(event.match.teams[0]),
-                          TeamTile(event.match.teams[1])
-                        ],
+                        children: <Widget>[TeamTile(event.match.teams[0]), TeamTile(event.match.teams[1])],
                       ),
                     ),
                     Column(
                       children: <Widget>[
                         Switch(
-                            value: widget._alarms[event.match.id].isSet,
+                            value: matchAlarm.isOn,
                             onChanged: (bool val) => {
-                                  setState(() => {
-                                        widget._alarms[event.match.id].isSet =
-                                            val
-                                      })
+                                  setState(() => {matchAlarm.isOn = val}),
+                                  alarmsBox.put(matchAlarm.matchID, matchAlarm)
                                 }),
                         ExpandableIcon(
                           theme: ExpandableThemeData(
@@ -64,8 +76,7 @@ class _MatchListTileState extends State<MatchListTile> {
                   ],
                 ),
               ),
-              expanded: ExpandedAlarmOptions(widget._alarms[event.match.id],
-                  widget._event.match.strategy.count),
+              expanded: ExpandedAlarmOptions(matchAlarm, widget._event.match.strategy.count),
             ),
             Divider()
           ],
