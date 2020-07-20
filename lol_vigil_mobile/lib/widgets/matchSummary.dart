@@ -16,8 +16,6 @@ class MatchSummary extends StatelessWidget {
       period = 'PM';
     } else if (hour == 0) hour = 12;
 
-    String gameType = event.blockName.toLowerCase().contains("final") ? '${event.blockName} - ' : '';
-    gameType += 'BO${event.match.strategy.count}';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -42,7 +40,7 @@ class MatchSummary extends StatelessWidget {
           style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor),
         ),
         Text(
-          gameType,
+          event.blockName,
           style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor),
         )
       ],
