@@ -22,7 +22,6 @@ void main() async {
   await Hive.initFlutter();
   await Hive.openBox('Leagues');
   await Hive.openBox('MatchAlarms');
-  await Hive.openBox('GameAlarms');
 
   runApp(App());
 }

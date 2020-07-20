@@ -28,9 +28,12 @@ class _MatchListTileState extends State<MatchListTile> {
     if (!alarmsBox.containsKey(matchID)) {
       matchAlarm = MatchAlarm(matchID, widget._event.match.strategy.count);
       alarmsBox.put(matchID, matchAlarm);
+      print('Added new alarm for ${widget._event.match}');
     } else {
       matchAlarm = alarmsBox.get(matchID);
+      print('Retrieved from box:  ${widget._event.match}');
     }
+
     super.initState();
   }
 
@@ -76,7 +79,7 @@ class _MatchListTileState extends State<MatchListTile> {
                   ],
                 ),
               ),
-              expanded: ExpandedAlarmOptions(matchAlarm, widget._event.match.strategy.count),
+              expanded: ExpandedAlarmOptions(matchAlarm),
             ),
             Divider()
           ],

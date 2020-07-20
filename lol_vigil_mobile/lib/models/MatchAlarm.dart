@@ -2,8 +2,12 @@ import 'package:hive/hive.dart';
 part 'MatchAlarm.g.dart';
 
 @HiveType(typeId: 1)
-class MatchAlarm {
-  MatchAlarm(this.matchID, this.numGames);
+class MatchAlarm extends HiveObject{
+  MatchAlarm(this.matchID, this.numGames){
+    if (alarms == null){
+      alarms = List<GameAlarm>.generate(numGames, (index) => GameAlarm(index+1));
+    }
+  }
 
   @HiveField(0)
   String matchID;
@@ -12,7 +16,7 @@ class MatchAlarm {
   @HiveField(2)
   int numGames;
   @HiveField(3)
-  HiveList alarms;
+  List<GameAlarm> alarms;
 
   @override
   String toString() {
@@ -23,15 +27,17 @@ class MatchAlarm {
 }
 
 @HiveType(typeId: 2)
-class GameAlarm extends HiveObject {
-  GameAlarm(this.gameNumber, [this.alarmTrigger, this.delay]);
+class GameAlarm {
+  GameAlarm(this.gameNumber) {
+    this.alarmTrigger = this.gameNumber == 1 ? Trigger.ChampionSelectBegins : Trigger.Off;
+  }
 
   @HiveField(0)
   int gameNumber;
   @HiveField(1)
-  Trigger alarmTrigger = Trigger.Off;
+  Trigger alarmTrigger;
   @HiveField(2)
-  int delay = 0;
+  double delay = 0;
 
   @override
   String toString() => "$gameNumber\t$alarmTrigger\t$delay";

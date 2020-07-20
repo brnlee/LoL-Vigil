@@ -15,7 +15,6 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   List<League> _leagues = List<League>();
   Set<String> _leaguesToShow = Set();
   Map<String, Alarm> _alarms = Map<String, Alarm>();
-  DateTime _lastMatchDateTime;
   ScrollController _scrollController = ScrollController();
   bool isLoading = false;
 
@@ -84,9 +83,8 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
         ),
         Divider(),
       ]);
-    }
-
-    return MatchListTile(dateSeperatedEvents[index]);
+    } else
+      return MatchListTile(dateSeperatedEvents[index]);
   }
 
   void _scrollToTop() {
@@ -129,18 +127,17 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     print('NEXT PAGE $_nextPage');
-    List<Event> filteredEvents = _events.length > 0 && _leaguesToShow.length > 0
-        ? _events.where((e) => _leaguesToShow.contains(e.tournament.name)).toList()
-        : _events;
 
     List dateSeperatedEvents = [];
     DateTime prevEventTime;
-    filteredEvents.forEach((event) {
-      DateTime time = event.startTime.toLocal();
-      if (prevEventTime == null || prevEventTime.day != time.day)
-        dateSeperatedEvents.add(DateFormat('EEEE - LLLL d').format(time));
-      dateSeperatedEvents.add(event);
-      prevEventTime = time;
+    _events.forEach((event) {
+      if (_leaguesToShow.contains(event.tournament.name)) {
+        DateTime time = event.startTime.toLocal();
+        if (prevEventTime == null || prevEventTime.day != time.day)
+          dateSeperatedEvents.add(DateFormat('EEEE - LLLL d').format(time));
+        dateSeperatedEvents.add(event);
+        prevEventTime = time;
+      }
     });
 
     return Scaffold(
@@ -154,6 +151,10 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
           IconButton(
             icon: Icon(Icons.more_vert),
             onPressed: () => null,
+          ),
+          IconButton(
+            icon: Icon(Icons.alarm),
+            onPressed: () => {print("CLEARING ALARMS"), Hive.box('matchAlarms').clear()},
           )
         ],
       ),

@@ -9,7 +9,7 @@ class LeaguesDrawer extends StatelessWidget {
   LeaguesDrawer(this._leagues, this._leaguesBox);
 
   final List<League> _leagues;
-  Box _leaguesBox;
+  final Box _leaguesBox;
 
   void _handleCheckBoxValueChange(String name, bool newValue) {
     _leaguesBox.put(name, newValue);

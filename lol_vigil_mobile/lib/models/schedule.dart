@@ -132,6 +132,11 @@ class Match {
         "teams": List<dynamic>.from(teams.map((x) => x.toJson())),
         "strategy": strategy.toJson(),
       };
+
+  @override
+  String toString() {
+    return '${teams[0].name} vs ${teams[1].name}';
+  }
 }
 
 class Strategy {
