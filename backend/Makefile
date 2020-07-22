@@ -56,6 +56,10 @@ get_leagues: getLeagues
 	env GOOS=linux GOARCH=amd64 go build -o get_leagues ./getLeagues
 	$(ZIPPER) -o get_leagues.zip get_leagues
 
+set_alarm: setAlarm
+	env GOOS=linux GOARCH=amd64 go build -o set_alarm ./setAlarm
+	$(ZIPPER) -o set_alarm.zip set_alarm
+
 .PHONY: testUpdateSchedule
 testUpdateSchedule: update_schedule
 	sam local invoke 'UpdateScheduleFunction' --docker-network lambda-local
@@ -68,8 +72,12 @@ testGetSchedule: get_schedule
 testGetLeagues: get_leagues
 	sam local invoke 'GetLeaguesFunction' --docker-network lambda-local
 
+.PHONY: testSetAlarm
+testGetLeagues: set_alarm
+	sam local invoke 'SetAlarmFunction' --docker-network lambda-local
+
 .PHONY: build
-build: update_schedule get_schedule getLeagues
+build: update_schedule get_schedule get_leagues set_alarm
 
 .PHONY: run
 run: build
