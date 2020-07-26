@@ -34,16 +34,35 @@ type Event struct {
 }
 
 type Match struct {
-	ID        string    `json:"-"`
-	StartTime string    `json:":time"`
-	State     string    `json:":state"`
-	Teams     [2]string `json:":teams"`
-	Strategy  Strategy  `json:":strat"`
+	ID        string       `json:"-"`
+	StartTime string       `json:":time"`
+	State     string       `json:":state"`
+	Teams     [2]string    `json:":teams"`
+	Strategy  Strategy     `json:":strat"`
+	Games     map[int]Game `json:":gameAlarms"`
 }
 
 type Strategy struct {
 	Type  string `json:"type"`
 	Count int    `json:"count"`
+}
+
+type Game struct {
+	Alarms map[string]common.Alarm `json:"alarms"`
+}
+
+func isEqual(a, b Match) bool {
+	if &a == &b {
+		return true
+	}
+	if a.ID != b.ID ||
+		a.StartTime != b.StartTime ||
+		a.State != b.State ||
+		a.Teams != b.Teams ||
+		a.Strategy != b.Strategy {
+		return false
+	}
+	return true
 }
 
 var (
@@ -176,6 +195,7 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
 			log.Println("Error marshalling match", err)
 			return
 		}
+		fmt.Printf("%+v\n", match.Games)
 
 		input := &dynamodb.UpdateItemInput{
 			TableName: aws.String("Matches"),
@@ -184,11 +204,11 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
 					N: aws.String(match.ID),
 				},
 			},
-			ExpressionAttributeValues: matchJson,
 			ExpressionAttributeNames: map[string]*string{
 				"#STATE": aws.String("state"),
 			},
-			UpdateExpression: aws.String("SET startTime = :time, #STATE = :state, strategy = :strat, teams = :teams"),
+			ExpressionAttributeValues: matchJson,
+			UpdateExpression:          aws.String("SET startTime = :time, #STATE = :state, strategy = :strat, teams = :teams, games = :gameAlarms"),
 		}
 
 		wg.Add(1)
@@ -250,17 +270,23 @@ func compareAndUpdateDynamoDb(schedule *Schedule, scheduleJSON string) {
 			continue
 		}
 
+		gamesMap := make(map[int]Game)
+		for i := 1; i <= strategy.Count; i++ {
+			gamesMap[i] = Game{}
+		}
+
 		match := Match{
 			ID:        matchID,
 			StartTime: matchEvent.StartTime,
 			State:     matchEvent.State,
 			Teams:     teams,
 			Strategy:  strategy,
+			Games:     gamesMap,
 		}
 		matches[matchID] = match
 
 		prevMatchVersion, ok := prevMatches[matchID]
-		if (ok && prevMatchVersion != match) || !ok {
+		if (ok && !isEqual(prevMatchVersion, match)) || !ok {
 			matchesToUpdate = append(matchesToUpdate, match)
 			prevMatches[matchID] = match
 		}

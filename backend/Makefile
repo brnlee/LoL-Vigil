@@ -37,7 +37,7 @@ scanSchedule:
 	aws dynamodb scan --table-name Schedule --endpoint-url http://localhost:8000
 
 .PHONY: startdb
-startdb:
+startdb: createMatches createSchedule
 	docker start dynamodb
 
 .PHONY: clean
