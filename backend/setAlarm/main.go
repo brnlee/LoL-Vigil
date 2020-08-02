@@ -27,7 +27,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	alarmRequest, err := UnmarshalSetAlarmRequest(request.Body)
 	if err != nil {
-		log.Println("Error unmarshalling alarm request")
+		log.Println("Error unmarshalling alarm request", err)
 		return createResponse("", http.StatusBadRequest), nil
 	}
 
@@ -42,19 +42,28 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 func UnmarshalSetAlarmRequest(data string) (common.Alarm, error) {
 	gjson.Get(data, "deviceID")
-	fields := gjson.GetMany(data, "deviceID", "matchID", "gameNumber", "trigger", "delay")
+	fields := gjson.GetMany(data, "deviceID", "matchID", "gameAlarms")
 	for _, field := range fields {
 		if !field.Exists() {
 			return common.Alarm{}, fmt.Errorf("request did not include all required arguments")
 		}
 	}
 
+	gameAlarmsResult := fields[2].Array()
+	gameAlarms := make([]common.GameAlarm, len(gameAlarmsResult))
+	for i, alarmResult := range gameAlarmsResult {
+		alarm := alarmResult.Map()
+		gameAlarms[i] = common.GameAlarm{
+			GameNumber: int(alarm["gameNumber"].Int()),
+			Trigger:    alarm["trigger"].String(),
+			Delay:      int(alarm["delay"].Int()),
+		}
+	}
+
 	return common.Alarm{
 		DeviceID:   fields[0].String(),
 		MatchID:    fields[1].String(),
-		GameNumber: fields[2].Int(),
-		Trigger:    fields[3].String(),
-		Delay:      fields[4].Int(),
+		GameAlarms: gameAlarms,
 	}, nil
 }
 
@@ -67,11 +76,32 @@ func createResponse(body string, statusCode int) events.APIGatewayProxyResponse 
 }
 
 func updateAlarmInDB(request common.Alarm) error {
-	alarmRequestJson, err := dynamodbattribute.Marshal(request)
-	if err != nil {
-		log.Println("Error marshalling alarm request", err)
-		return err
+	updateExpression := "SET "
+
+	alarmAttributeNames := make(map[string]*string)
+	alarmAttributeNames["#deviceID"] = aws.String(request.DeviceID)
+
+	alarmAttributeValues := make(map[string]*dynamodb.AttributeValue)
+
+	for _, alarm := range request.GameAlarms {
+		alarmJson, err := dynamodbattribute.Marshal(alarm)
+		if err != nil {
+			log.Println("Error marshalling alarm request", err)
+			return err
+		}
+
+		gameNumberKey := fmt.Sprintf("#game%d", alarm.GameNumber)
+		alarmAttributeNames[gameNumberKey] = aws.String(strconv.Itoa(alarm.GameNumber))
+
+		gameAlarmKey := fmt.Sprintf(":game%dAlarm", alarm.GameNumber)
+		alarmAttributeValues[gameAlarmKey] = alarmJson
+
+		updateExpression += fmt.Sprintf("games.%s.#deviceID = %s", gameNumberKey, gameAlarmKey)
+		if alarm.GameNumber != len(request.GameAlarms) {
+			updateExpression += ", "
+		}
 	}
+	fmt.Printf("%+v\n%+v\n%s\n", alarmAttributeNames, alarmAttributeValues, updateExpression)
 
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String("Matches"),
@@ -80,16 +110,11 @@ func updateAlarmInDB(request common.Alarm) error {
 				N: aws.String(request.MatchID),
 			},
 		},
-		ExpressionAttributeNames: map[string]*string{
-			"#gameNumber": aws.String(strconv.FormatInt(request.GameNumber, 10)),
-			"#deviceID":   aws.String(request.DeviceID),
-		},
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":alarm": alarmRequestJson,
-		},
-		UpdateExpression: aws.String("SET games.#gameNumber.#deviceID = :alarm"),
+		ExpressionAttributeNames:  alarmAttributeNames,
+		ExpressionAttributeValues: alarmAttributeValues,
+		UpdateExpression:          aws.String(updateExpression),
 	}
-	_, err = db.UpdateItem(input)
+	_, err := db.UpdateItem(input)
 	common.CheckDbResponseError(err)
 	return err
 }
