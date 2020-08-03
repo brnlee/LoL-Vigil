@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:lolvigilmobile/main.dart';
 
 part 'MatchAlarm.g.dart';
 
@@ -27,7 +28,7 @@ class MatchAlarm extends HiveObject {
   }
 
   Map<String, dynamic> toJson() => {
-        'deviceID': 1,
+        'deviceID': firebaseToken,
         'matchID': matchID,
         'gameAlarms': List<dynamic>.from(alarms.map((gameAlarm) => gameAlarm.toJson())),
       };
