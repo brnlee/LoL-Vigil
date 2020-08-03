@@ -107,10 +107,8 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   }
 
   updateFilteredLeagues() async {
-    print('FILTERING LEAGUES');
     Set<String> leaguesToShow = getFilteredLeagueValues();
     if (SetEquality().equals(_leaguesToShow, leaguesToShow)) return;
-    print(leaguesToShow);
 
     setState(() {
       isLoading = true;
@@ -126,8 +124,6 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    print('NEXT PAGE $_nextPage');
-
     List dateSeperatedEvents = [];
     DateTime prevEventTime;
     _events.forEach((event) {
@@ -154,7 +150,7 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
           ),
           IconButton(
             icon: Icon(Icons.alarm),
-            onPressed: () => {print("CLEARING ALARMS"), Hive.box('matchAlarms').clear()},
+            onPressed: () => Hive.box('matchAlarms').clear(),
           )
         ],
       ),

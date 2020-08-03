@@ -30,12 +30,12 @@ class ExpandedAlarmOptions extends StatelessWidget {
                         ),
                         ExpandableIcon(
                             theme: ExpandableThemeData(
-                              iconColor: Theme.of(context).hintColor,
-                            )),
+                          iconColor: Theme.of(context).hintColor,
+                        )),
                       ],
                     ),
                   ),
-                  expanded: _GameAlarmOptions(_matchAlarm, gameNumber-1),
+                  expanded: _GameAlarmOptions(_matchAlarm, gameNumber - 1),
                 ),
               ],
             ),
@@ -44,8 +44,6 @@ class ExpandedAlarmOptions extends StatelessWidget {
     ]);
   }
 }
-
-enum options { off, champSelectBegins, gameBegins }
 
 class _GameAlarmOptions extends StatefulWidget {
   _GameAlarmOptions(this._matchAlarm, this.gameNumber);
@@ -63,16 +61,15 @@ class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
   GameAlarm _gameAlarm;
 
   @override
-  void initState(){
+  void initState() {
     _gameAlarm = widget._matchAlarm.alarms[widget.gameNumber];
     _alarmTrigger = _gameAlarm.alarmTrigger;
-    _delay =_gameAlarm.delay;
+    _delay = _gameAlarm.delay;
     super.initState();
   }
 
   onTriggerChanged(Trigger trigger) {
     _gameAlarm.alarmTrigger = trigger;
-    if (trigger == Trigger.Off)
     widget._matchAlarm.save();
     setState(() => _alarmTrigger = trigger);
   }
@@ -85,6 +82,7 @@ class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
 
   @override
   Widget build(BuildContext context) {
+    _alarmTrigger = _gameAlarm.alarmTrigger;
     return Column(
       children: <Widget>[
         RadioListTile(
@@ -120,9 +118,7 @@ class _GameAlarmOptionsState extends State<_GameAlarmOptions> {
                     max: 20,
                     divisions: 20,
                     value: _delay,
-                    onChanged: _gameAlarm.alarmTrigger == Trigger.Off
-                        ? null
-                        : onDelayChanged,
+                    onChanged: _alarmTrigger == Trigger.Off ? null : onDelayChanged,
                   ),
                 )
               ],

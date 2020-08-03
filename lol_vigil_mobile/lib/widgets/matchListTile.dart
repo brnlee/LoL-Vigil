@@ -1,12 +1,17 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive/hive.dart';
 import 'package:lolvigilmobile/models/MatchAlarm.dart';
 import 'package:lolvigilmobile/models/schedule.dart';
+import 'package:lolvigilmobile/utils/constants.dart';
 import 'package:lolvigilmobile/widgets/expandedAlarmOptions.dart';
 import 'package:lolvigilmobile/widgets/matchSummary.dart';
 import 'package:lolvigilmobile/widgets/teamTile.dart';
 import 'package:expandable/expandable.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:http/http.dart' as http;
 
 class MatchListTile extends StatefulWidget {
   MatchListTile(this._event, {Key key}) : super(key: key);
@@ -20,6 +25,7 @@ class MatchListTile extends StatefulWidget {
 class _MatchListTileState extends State<MatchListTile> {
   MatchAlarm matchAlarm;
   Box alarmsBox;
+  bool isPendingUpdate = false;
 
   @override
   void initState() {
@@ -28,13 +34,38 @@ class _MatchListTileState extends State<MatchListTile> {
     if (!alarmsBox.containsKey(matchID)) {
       matchAlarm = MatchAlarm(matchID, widget._event.match.strategy.count);
       alarmsBox.put(matchID, matchAlarm);
-      print('Added new alarm for ${widget._event.match}');
-    } else {
+    } else
       matchAlarm = alarmsBox.get(matchID);
-      print('Retrieved from box:  ${widget._event.match}');
-    }
+
+    alarmsBox.listenable(keys: [matchID]).addListener(() {
+      if (mounted && !isPendingUpdate) {
+        setState(() => isPendingUpdate = true);
+        Future.delayed(const Duration(seconds: 10), () {
+          print(alarmsBox.get(matchID).toJson());
+          makeSetAlarmRequest(alarmsBox.get(matchID));
+          if (mounted) setState(() => isPendingUpdate = false);
+        });
+      }
+    });
 
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    alarmsBox.listenable(keys: [matchAlarm.matchID]).removeListener(() {});
+    super.dispose();
+  }
+
+  void makeSetAlarmRequest(MatchAlarm alarm) async {
+    final http.Response response = await http.post(
+      Constants.HOST + 'set_alarm',
+      body: json.encode(alarm.toJson()),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    );
+    if (response.statusCode != 200) print('Failed to request an alarm with error ${response.statusCode}');
   }
 
   @override
@@ -67,7 +98,7 @@ class _MatchListTileState extends State<MatchListTile> {
                             value: matchAlarm.isOn,
                             onChanged: (bool val) => {
                                   setState(() => {matchAlarm.isOn = val}),
-                                  alarmsBox.put(matchAlarm.matchID, matchAlarm)
+                                  matchAlarm.toggleMatchAlarm(val)
                                 }),
                         ExpandableIcon(
                           theme: ExpandableThemeData(

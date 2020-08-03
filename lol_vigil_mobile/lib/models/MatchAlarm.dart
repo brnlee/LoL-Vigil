@@ -1,11 +1,12 @@
 import 'package:hive/hive.dart';
+
 part 'MatchAlarm.g.dart';
 
 @HiveType(typeId: 1)
-class MatchAlarm extends HiveObject{
-  MatchAlarm(this.matchID, this.numGames){
-    if (alarms == null){
-      alarms = List<GameAlarm>.generate(numGames, (index) => GameAlarm(index+1));
+class MatchAlarm extends HiveObject {
+  MatchAlarm(this.matchID, this.numGames) {
+    if (alarms == null) {
+      alarms = List<GameAlarm>.generate(numGames, (index) => GameAlarm(index + 1));
     }
   }
 
@@ -20,9 +21,21 @@ class MatchAlarm extends HiveObject{
 
   @override
   String toString() {
-    String str = "$matchID\t$isOn\n";
-    if (alarms != null) alarms.forEach((alarm) => str += "\t${alarm.toString()}\n");
+    String str = '$matchID\t$isOn\n';
+    if (alarms != null) alarms.forEach((alarm) => str += '\t${alarm.toString()}\n');
     return str;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'deviceID': 1,
+        'matchID': matchID,
+        'gameAlarms': List<dynamic>.from(alarms.map((gameAlarm) => gameAlarm.toJson())),
+      };
+
+  toggleMatchAlarm(bool isOnValue) {
+    isOn = isOnValue;
+    if (!isOn) alarms.forEach((gameAlarm) => gameAlarm.alarmTrigger = Trigger.Off);
+    save();
   }
 }
 
@@ -40,7 +53,26 @@ class GameAlarm {
   double delay = 0;
 
   @override
-  String toString() => "$gameNumber\t$alarmTrigger\t$delay";
+  String toString() => '$gameNumber\t$alarmTrigger\t$delay';
+
+  Map<String, dynamic> toJson() => {
+        'gameNumber': gameNumber,
+        'trigger': getTriggerString(),
+        'delay': delay,
+      };
+
+  String getTriggerString() {
+    switch (alarmTrigger) {
+      case Trigger.Off:
+        return 'off';
+      case Trigger.ChampionSelectBegins:
+        return 'championSelectBegins';
+      case Trigger.GameBegins:
+        return 'gameBegins';
+      default:
+        return 'off';
+    }
+  }
 }
 
 @HiveType(typeId: 3)
