@@ -14,8 +14,8 @@ import (
 	"strconv"
 )
 
-//func (r *Alarm) Marshal() ([]byte, error) {
-//	return json.Marshal(r)
+//func (r *Alarm) MarshalGameDetails() ([]byte, error) {
+//	return json.MarshalGameDetails(r)
 //}
 
 var (

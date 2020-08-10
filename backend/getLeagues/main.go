@@ -19,6 +19,11 @@ type CachedLeagues struct {
 var (
 	// Since Lambda is kept warm, it will save global variables.
 	cache = CachedLeagues{}
+
+	getScheduleAddress = "https://esports-api.lolesports.com/persisted/gw/getLeagues?hl=en-US"
+	client             = &http.Client{
+		Timeout: 10 * time.Second,
+	}
 )
 
 func handler() (events.APIGatewayProxyResponse, error) {
@@ -37,17 +42,13 @@ func handler() (events.APIGatewayProxyResponse, error) {
 }
 
 func updateLeagues() {
-	getScheduleAddress := "https://esports-api.lolesports.com/persisted/gw/getLeagues?hl=en-US"
-
 	req, err := http.NewRequest("GET", getScheduleAddress, nil)
 	if err != nil {
 		return
 	}
 
 	req.Header.Add("x-api-key", os.Getenv("APIKEY"))
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return

@@ -62,7 +62,11 @@ func isEqual(a, b Match) bool {
 }
 
 var (
-	APIKey = os.Getenv("APIKEY")
+	APIKey             = os.Getenv("APIKEY")
+	getScheduleAddress = "https://esports-api.lolesports.com/persisted/gw/getSchedule?hl=en-US"
+	client             = &http.Client{
+		Timeout: 10 * time.Second,
+	}
 
 	// Since Lambda is kept warm, it will save global variables.
 	// prevSchedule and prevMatches are essentially caches
@@ -107,7 +111,6 @@ func handler() {
 }
 
 func pullSchedule(pageToken string) ([]byte, error) {
-	getScheduleAddress := "https://esports-api.lolesports.com/persisted/gw/getSchedule?hl=en-US"
 	if pageToken != "" {
 		getScheduleAddress += fmt.Sprintf("&pageToken=%s", pageToken)
 	}
@@ -118,9 +121,7 @@ func pullSchedule(pageToken string) ([]byte, error) {
 	}
 
 	req.Header.Add("x-api-key", APIKey)
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
