@@ -1,14 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/brnlee/LoL-Vigil/common"
 	"log"
+	"os"
 	"strconv"
 	"time"
 )
@@ -16,6 +20,23 @@ import (
 var (
 	db = common.ConnectToDynamoDb()
 )
+
+type SNSMessage struct {
+	GCM string `json:"GCM"`
+}
+
+type GCMMessage struct {
+	Data DataMessage `json:"data,omitempty"`
+	//Notification NotificationMessaage `json:"notification,omitempty"`
+}
+
+type DataMessage struct {
+	Message string `json:"message"`
+}
+
+//type NotificationMessaage struct {
+//	Text string `json:"text"`
+//}
 
 func handler(snsEvent events.SNSEvent) {
 	for _, event := range snsEvent.Records {
@@ -42,11 +63,11 @@ func handler(snsEvent events.SNSEvent) {
 		}
 
 		// Iterates through map of alarms (+GameStartTime)
-		for key, val := range gameAlarms {
-			if val == nil {
+		for deviceToken, gameAlarm := range gameAlarms {
+			if gameAlarm == nil {
 				break
 			}
-			alarmMap := val.(map[string]interface{})
+			alarmMap := gameAlarm.(map[string]interface{})
 
 			alarm := common.GameAlarm{
 				GameNumber:       gameNumber,
@@ -62,13 +83,14 @@ func handler(snsEvent events.SNSEvent) {
 			currentTime := time.Now()
 			delay := time.Duration(alarm.Delay) * time.Minute
 
-			fmt.Printf("DeviceID: %s\tAlarm: %+v\tDelay: %s\n", key, alarm, delay)
+			fmt.Printf("DeviceID: %s\tAlarm: %+v\tDelay: %s\n", deviceToken, alarm, delay)
 
 			switch alarm.Trigger {
 			case "gameBegins":
 				if !gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay {
 					// todo: SNS
 					println("Game Begins Trigger")
+					sendNotification(deviceToken)
 				}
 			case "firstBlood":
 				if !firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay {
@@ -130,6 +152,108 @@ func getGameAlarmsAndTimestamps(gameDetails common.GameDetails) (map[string]inte
 
 	return matchAlarmsMap[gameDetails.GameNumber].(map[string]interface{}),
 		matchTimestampsMap[gameDetails.GameNumber].(map[string]interface{})
+}
+
+func sendNotification(deviceToken string) {
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	svc := sns.New(sess)
+
+	resp, err := svc.CreatePlatformEndpoint(&sns.CreatePlatformEndpointInput{
+		PlatformApplicationArn: aws.String(os.Getenv("SNSApplicationARN")),
+		Token:                  aws.String(deviceToken),
+	})
+	if err != nil {
+		log.Printf("Error creating platform endpoint: %s\n", err)
+		return
+	}
+
+	gcmMessage := GCMMessage{
+		Data: DataMessage{
+			Message: "This is a test notification.",
+		},
+	}
+
+	gcmMessageJson, err := json.Marshal(gcmMessage)
+	if err != nil {
+		log.Printf("Error marshalling GCMMessage: %s\n", err)
+		return
+	}
+
+	message := SNSMessage{
+		GCM: string(gcmMessageJson),
+	}
+
+	messageJSON, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("Error marshalling SNS message to JSON: %s\n", err)
+		return
+	}
+
+	input := &sns.PublishInput{
+		Message:          aws.String(string(messageJSON)),
+		MessageStructure: aws.String("json"),
+		TargetArn:        aws.String(*resp.EndpointArn),
+	}
+	_, err = svc.Publish(input)
+	if err != nil {
+		log.Printf("Error publushing message: %s\n", err)
+		return
+	}
+}
+
+func hardcodedSendNotification() {
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	svc := sns.New(sess)
+
+	resp, err := svc.CreatePlatformEndpoint(&sns.CreatePlatformEndpointInput{
+		PlatformApplicationArn: aws.String(os.Getenv("SNSApplicationARN")),
+		Token:                  aws.String(os.Getenv("TestToken")),
+	})
+	if err != nil {
+		log.Printf("Error creating platform endpoint: %s\n", err)
+		return
+	}
+
+	gcmMessage := GCMMessage{
+		Data: DataMessage{
+			Message: "This is a test notification.",
+		},
+	}
+
+	g, err := json.Marshal(gcmMessage)
+	if err != nil {
+		log.Printf("Error marshalling GCMMessage: %s\n", err)
+		return
+	}
+
+	message := SNSMessage{
+		GCM: string(g),
+	}
+
+	messageJSON, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("Error marshalling GCM message to JSON: %s\n", err)
+		return
+	}
+
+	println(string(messageJSON))
+
+	input := &sns.PublishInput{
+		Message:          aws.String(string(messageJSON)),
+		MessageStructure: aws.String("json"),
+		TargetArn:        aws.String(*resp.EndpointArn),
+	}
+	_, err = svc.Publish(input)
+	if err != nil {
+		log.Printf("Error publushing message: %s\n", err)
+		return
+	}
 }
 
 func main() {
