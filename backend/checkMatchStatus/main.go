@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/brnlee/LoL-Vigil/common"
 	"github.com/tidwall/gjson"
@@ -25,6 +26,7 @@ var (
 	client                 = &http.Client{
 		Timeout: 10 * time.Second,
 	}
+	db = common.ConnectToDynamoDb()
 )
 
 type Game struct {
@@ -35,6 +37,7 @@ type Game struct {
 
 func handler() {
 	log.SetFlags(log.Lshortfile)
+
 	liveMatches, err := getLive()
 	fmt.Printf("%+v\n", common.GameDetails{})
 	if err != nil {
@@ -71,8 +74,7 @@ func checkLiveMatchStatus(matchID string) {
 			}
 
 			if gameDetails.Frames[len(gameDetails.Frames)-1].GameState == common.InGame {
-				// todo: make another lambda func to send notifications
-				log.Println("Sending notifications...")
+				updateGameStartInDB(gameDetails)
 
 				gameDetailsJson, err := json.Marshal(gameDetails)
 				if err != nil {
@@ -187,6 +189,29 @@ func getGameStatus(game Game) (common.GameDetails, error) {
 	gameDetails.GameNumber = strconv.Itoa(game.Number)
 
 	return gameDetails, nil
+}
+
+func updateGameStartInDB(gameDetails common.GameDetails) {
+	updatePath := fmt.Sprintf("games.#GameNumber.GameStartTime")
+	input := &dynamodb.UpdateItemInput{
+		TableName: aws.String("Matches"),
+		Key: map[string]*dynamodb.AttributeValue{
+			"id": {
+				N: aws.String(gameDetails.MatchID),
+			},
+		},
+		ExpressionAttributeNames: map[string]*string{
+			"#GameNumber": aws.String(gameDetails.GameNumber),
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":time": {
+				S: aws.String(gameDetails.Frames[len(gameDetails.Frames)-1].Rfc460Timestamp),
+			},
+		},
+		UpdateExpression: aws.String(fmt.Sprintf("SET %s = if_not_exists(%s, :time)", updatePath, updatePath)),
+	}
+	_, err := db.UpdateItem(input)
+	common.CheckDbResponseError(err)
 }
 
 func main() {

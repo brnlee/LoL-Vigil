@@ -200,7 +200,6 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []common.Match) {
 			},
 			ExpressionAttributeValues: matchJson,
 			UpdateExpression:          aws.String("SET startTime = :time, #STATE = :state, strategy = :strat, teams = :teams, games = if_not_exists(games, :gameAlarms)"),
-			//UpdateExpression: aws.String("SET startTime = :time, #STATE = :state, strategy = :strat, teams = :teams, games = :gameAlarms"),
 		}
 
 		wg.Add(1)

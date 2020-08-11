@@ -10,6 +10,7 @@ import (
 	"github.com/brnlee/LoL-Vigil/common"
 	"log"
 	"strconv"
+	"time"
 )
 
 var (
@@ -24,18 +25,25 @@ func handler(snsEvent events.SNSEvent) {
 			return
 		}
 
-		alarms := getGameAlarms(gameDetails)
-		if alarms == nil {
+		game := getGame(gameDetails)
+		if game == nil {
 			continue
 		}
 
 		gameNumber, _ := strconv.Atoi(gameDetails.GameNumber)
+		gameStartTime, err := time.Parse(time.RFC3339, game["GameStartTime"].(string))
+		if err != nil {
+			continue
+		}
 
-		for deviceID, alarmInterface := range alarms {
-			if alarmInterface == nil {
+		// Iterates through map of alarms (+GameStartTime)
+		for key, val := range game {
+			if key == "GameStartTime" {
+				continue
+			} else if val == nil {
 				break
 			}
-			alarmMap := alarmInterface.(map[string]interface{})
+			alarmMap := val.(map[string]interface{})
 
 			alarm := common.GameAlarm{
 				GameNumber:       gameNumber,
@@ -43,11 +51,13 @@ func handler(snsEvent events.SNSEvent) {
 				Trigger:          alarmMap["trigger"].(string),
 				Delay:            int(alarmMap["delay"].(float64)),
 			}
-			fmt.Printf("%s\t%+v\n", deviceID, alarm)
+			fmt.Printf("%s\t%+v\t%s\n", key, alarm, time.Now().Sub(gameStartTime).String())
 			if alarm.HasBeenTriggered {
 				continue
+			} else if alarm.Trigger == "gameBegins" && time.Now().Sub(gameStartTime) >= time.Duration(alarm.Delay)*time.Second {
+				// todo: SNS
+				println("WEEEEEEEEEEEEE")
 			}
-
 		}
 	}
 }
@@ -64,9 +74,9 @@ func getGames(matchID string) (interface{}, error) {
 	result, err := db.GetItem(input)
 	if err != nil {
 		common.CheckDbResponseError(err)
-		return common.Match{}, err
+		return nil, err
 	} else if result.Item == nil {
-		return common.Match{}, nil
+		return nil, nil
 	}
 
 	type Item struct {
@@ -75,13 +85,13 @@ func getGames(matchID string) (interface{}, error) {
 	item := Item{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &item)
 	if err != nil {
-		return common.Match{}, err
+		return nil, err
 	}
 
 	return item.Games, nil
 }
 
-func getGameAlarms(gameDetails common.GameDetails) map[string]interface{} {
+func getGame(gameDetails common.GameDetails) map[string]interface{} {
 	games, err := getGames(gameDetails.MatchID)
 	if err != nil {
 		log.Printf("Error retrieving match %s from database: %s\n", gameDetails.MatchID, err)
@@ -94,12 +104,7 @@ func getGameAlarms(gameDetails common.GameDetails) map[string]interface{} {
 		return nil
 	}
 
-	alarms := gamesMap[gameDetails.GameNumber].(map[string]interface{})
-	if alarms == nil {
-		return nil
-	}
-
-	return alarms
+	return gamesMap[gameDetails.GameNumber].(map[string]interface{})
 }
 
 func main() {
