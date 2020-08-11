@@ -74,7 +74,7 @@ func checkLiveMatchStatus(matchID string) {
 			}
 
 			if gameDetails.Frames[len(gameDetails.Frames)-1].GameState == common.InGame {
-				updateGameStartInDB(gameDetails)
+				updateTimestampsInDB(gameDetails)
 
 				gameDetailsJson, err := json.Marshal(gameDetails)
 				if err != nil {
@@ -191,8 +191,21 @@ func getGameStatus(game Game) (common.GameDetails, error) {
 	return gameDetails, nil
 }
 
-func updateGameStartInDB(gameDetails common.GameDetails) {
-	updatePath := fmt.Sprintf("games.#GameNumber.GameStartTime")
+func updateTimestampsInDB(gameDetails common.GameDetails) {
+	attributeValues := make(map[string]*dynamodb.AttributeValue)
+	lastFrame := gameDetails.Frames[len(gameDetails.Frames)-1]
+
+	gameBeginsUpdatePath := "gameTimestamps.#GameNumber.gameBegins"
+	attributeValues[":gameBeginsTime"] = &dynamodb.AttributeValue{S: aws.String(lastFrame.Rfc460Timestamp)}
+
+	updateExpression := fmt.Sprintf("SET %s = if_not_exists(%s, :gameBeginsTime)", gameBeginsUpdatePath, gameBeginsUpdatePath)
+
+	if lastFrame.BlueTeam.TotalKills > 0 || lastFrame.RedTeam.TotalKills > 0 {
+		firstBloodUpdatePath := "gameTimestamps.#GameNumber.firstBlood"
+		updateExpression += fmt.Sprintf(", %s = if_not_exists(%s, :firstBloodTime", firstBloodUpdatePath, firstBloodUpdatePath)
+		attributeValues[":firstBloodTime"] = &dynamodb.AttributeValue{S: aws.String(lastFrame.Rfc460Timestamp)}
+	}
+
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String("Matches"),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -203,12 +216,8 @@ func updateGameStartInDB(gameDetails common.GameDetails) {
 		ExpressionAttributeNames: map[string]*string{
 			"#GameNumber": aws.String(gameDetails.GameNumber),
 		},
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":time": {
-				S: aws.String(gameDetails.Frames[len(gameDetails.Frames)-1].Rfc460Timestamp),
-			},
-		},
-		UpdateExpression: aws.String(fmt.Sprintf("SET %s = if_not_exists(%s, :time)", updatePath, updatePath)),
+		ExpressionAttributeValues: attributeValues,
+		UpdateExpression:          aws.String(updateExpression),
 	}
 	_, err := db.UpdateItem(input)
 	common.CheckDbResponseError(err)

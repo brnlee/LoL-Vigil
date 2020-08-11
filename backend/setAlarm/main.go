@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 //func (r *Alarm) MarshalGameDetails() ([]byte, error) {
@@ -27,13 +28,16 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	alarmRequest, err := UnmarshalSetAlarmRequest(request.Body)
 	if err != nil {
-		log.Println("Error unmarshalling alarm request", err)
+		log.Printf("Error unmarshalling alarm request: %s\n", err)
 		return createResponse("", http.StatusBadRequest), nil
 	}
 
 	err = updateAlarmInDB(alarmRequest)
 	if err != nil {
-		log.Println("Error updating alarm in DB")
+		log.Printf("Error updating alarm in DB: %s\n", err)
+		if strings.Contains(err.Error(), "status code: 4") {
+			return createResponse("", http.StatusBadRequest), nil
+		}
 		return createResponse("", http.StatusInternalServerError), nil
 	}
 
@@ -97,7 +101,7 @@ func updateAlarmInDB(request common.Alarm) error {
 		gameAlarmKey := fmt.Sprintf(":game%dAlarm", alarm.GameNumber)
 		alarmAttributeValues[gameAlarmKey] = alarmJson
 
-		updateExpression += fmt.Sprintf("games.%s.#deviceID = %s", gameNumberKey, gameAlarmKey)
+		updateExpression += fmt.Sprintf("gameAlarms.%s.#deviceID = %s", gameNumberKey, gameAlarmKey)
 		if alarm.GameNumber != len(request.GameAlarms) {
 			updateExpression += ", "
 		}

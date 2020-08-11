@@ -1,19 +1,29 @@
 package common
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Match struct {
-	ID        string      `json:"-"`
-	StartTime string      `json:":time"`
-	State     string      `json:":state"`
-	Teams     [2]string   `json:":teams"`
-	Strategy  Strategy    `json:":strat"`
-	Games     interface{} `json:"-"`
+	ID             string             `json:"-"`
+	StartTime      string             `json:":time"`
+	State          string             `json:":state"`
+	Teams          [2]string          `json:":teams"`
+	Strategy       Strategy           `json:":strat"`
+	GameAlarms     interface{}        `json:"-"`
+	GameTimestamps map[int]Timestamps `json:":gameTimestamps"`
 }
 
 type Strategy struct {
 	Type  string `json:"type"`
 	Count int    `json:"count"`
+}
+
+type Timestamps struct {
+	ChampionSelectBegins time.Time `json:"champSelectBegins"`
+	GameBegins           time.Time `json:"gameBegins"`
+	FirstBlood           time.Time `json:"firstBlood"`
 }
 
 type Alarm struct {

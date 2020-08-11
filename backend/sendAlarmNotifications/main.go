@@ -21,26 +21,29 @@ func handler(snsEvent events.SNSEvent) {
 	for _, event := range snsEvent.Records {
 		gameDetails, err := common.UnmarshalGameDetails([]byte(event.SNS.Message))
 		if err != nil {
-			log.Printf("Error unmarshalling game details: %s\n", err)
+			log.Printf("Error unmarshalling gameAlarms details: %s\n", err)
 			return
 		}
 
-		game := getGame(gameDetails)
-		if game == nil {
+		gameAlarms, gameTimestamps := getGameAlarmsAndTimestamps(gameDetails)
+		if gameAlarms == nil || gameTimestamps == nil {
 			continue
 		}
 
 		gameNumber, _ := strconv.Atoi(gameDetails.GameNumber)
-		gameStartTime, err := time.Parse(time.RFC3339, game["GameStartTime"].(string))
+
+		gameStartTime, err := time.Parse(time.RFC3339, gameTimestamps["gameBegins"].(string))
+		if err != nil {
+			continue
+		}
+		firstBloodTime, err := time.Parse(time.RFC3339, gameTimestamps["firstBlood"].(string))
 		if err != nil {
 			continue
 		}
 
 		// Iterates through map of alarms (+GameStartTime)
-		for key, val := range game {
-			if key == "GameStartTime" {
-				continue
-			} else if val == nil {
+		for key, val := range gameAlarms {
+			if val == nil {
 				break
 			}
 			alarmMap := val.(map[string]interface{})
@@ -51,18 +54,33 @@ func handler(snsEvent events.SNSEvent) {
 				Trigger:          alarmMap["trigger"].(string),
 				Delay:            int(alarmMap["delay"].(float64)),
 			}
-			fmt.Printf("%s\t%+v\t%s\n", key, alarm, time.Now().Sub(gameStartTime).String())
+
 			if alarm.HasBeenTriggered {
 				continue
-			} else if alarm.Trigger == "gameBegins" && time.Now().Sub(gameStartTime) >= time.Duration(alarm.Delay)*time.Second {
-				// todo: SNS
-				println("WEEEEEEEEEEEEE")
+			}
+
+			currentTime := time.Now()
+			delay := time.Duration(alarm.Delay) * time.Minute
+
+			fmt.Printf("DeviceID: %s\tAlarm: %+v\tDelay: %s\n", key, alarm, delay)
+
+			switch alarm.Trigger {
+			case "gameBegins":
+				if !gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay {
+					// todo: SNS
+					println("Game Begins Trigger")
+				}
+			case "firstBlood":
+				if !firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay {
+					// todo: SNS
+					println("First Blood Trigger")
+				}
 			}
 		}
 	}
 }
 
-func getGames(matchID string) (interface{}, error) {
+func getMatchAlarmsAndTimestamps(matchID string) (interface{}, interface{}, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String("Matches"),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -74,37 +92,44 @@ func getGames(matchID string) (interface{}, error) {
 	result, err := db.GetItem(input)
 	if err != nil {
 		common.CheckDbResponseError(err)
-		return nil, err
+		return nil, nil, err
 	} else if result.Item == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	type Item struct {
-		Games interface{} `json:"games"`
+		GameAlarms     interface{} `json:"gameAlarms"`
+		GameTimestamps interface{} `json:"gameTimestamps"`
 	}
 	item := Item{}
 	err = dynamodbattribute.UnmarshalMap(result.Item, &item)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return item.Games, nil
+	return item.GameAlarms, item.GameTimestamps, nil
 }
 
-func getGame(gameDetails common.GameDetails) map[string]interface{} {
-	games, err := getGames(gameDetails.MatchID)
+func getGameAlarmsAndTimestamps(gameDetails common.GameDetails) (map[string]interface{}, map[string]interface{}) {
+	matchAlarms, matchTimestamps, err := getMatchAlarmsAndTimestamps(gameDetails.MatchID)
 	if err != nil {
 		log.Printf("Error retrieving match %s from database: %s\n", gameDetails.MatchID, err)
-	} else if games == nil {
-		return nil
+	} else if matchAlarms == nil || matchTimestamps == nil {
+		return nil, nil
 	}
 
-	gamesMap := games.(map[string]interface{})
-	if gamesMap[gameDetails.GameNumber] == nil {
-		return nil
+	matchAlarmsMap := matchAlarms.(map[string]interface{})
+	if matchAlarmsMap[gameDetails.GameNumber] == nil {
+		return nil, nil
 	}
 
-	return gamesMap[gameDetails.GameNumber].(map[string]interface{})
+	matchTimestampsMap := matchTimestamps.(map[string]interface{})
+	if matchTimestampsMap[gameDetails.GameNumber] == nil {
+		return nil, nil
+	}
+
+	return matchAlarmsMap[gameDetails.GameNumber].(map[string]interface{}),
+		matchTimestampsMap[gameDetails.GameNumber].(map[string]interface{})
 }
 
 func main() {

@@ -185,8 +185,10 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []common.Match) {
 		}
 
 		// The only way I found that was able to insert an empty map was to use an encoder with EnableEmptyCollections on
-		gameAlarmsMap, err := encoder.Encode(match.Games)
+		gameAlarmsMap, err := encoder.Encode(match.GameAlarms)
 		matchJson[":gameAlarms"] = gameAlarmsMap
+		gameTimestampsMap, err := encoder.Encode(match.GameTimestamps)
+		matchJson[":gameTimestamps"] = gameTimestampsMap
 
 		input := &dynamodb.UpdateItemInput{
 			TableName: aws.String("Matches"),
@@ -199,7 +201,8 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []common.Match) {
 				"#STATE": aws.String("state"),
 			},
 			ExpressionAttributeValues: matchJson,
-			UpdateExpression:          aws.String("SET startTime = :time, #STATE = :state, strategy = :strat, teams = :teams, games = if_not_exists(games, :gameAlarms)"),
+			UpdateExpression: aws.String("SET startTime = :time, #STATE = :state, strategy = :strat, teams = :teams, " +
+				"gameAlarms = if_not_exists(gameAlarms, :gameAlarms), gameTimestamps = if_not_exists(gameTimestamps, :gameTimestamps)"),
 		}
 
 		wg.Add(1)
@@ -261,18 +264,21 @@ func compareAndUpdateDynamoDb(schedule *Schedule, scheduleJSON string) {
 			continue
 		}
 
-		gamesMap := make(map[int]interface{})
+		gameAlarmsMap := make(map[int]interface{})
+		gameTimestampsMap := make(map[int]common.Timestamps)
 		for i := 1; i <= strategy.Count; i++ {
-			gamesMap[i] = map[string]interface{}{}
+			gameAlarmsMap[i] = map[string]interface{}{}
+			gameTimestampsMap[i] = common.Timestamps{}
 		}
 
 		match := common.Match{
-			ID:        matchID,
-			StartTime: matchEvent.StartTime,
-			State:     matchEvent.State,
-			Teams:     teams,
-			Strategy:  strategy,
-			Games:     gamesMap,
+			ID:             matchID,
+			StartTime:      matchEvent.StartTime,
+			State:          matchEvent.State,
+			Teams:          teams,
+			Strategy:       strategy,
+			GameAlarms:     gameAlarmsMap,
+			GameTimestamps: gameTimestampsMap,
 		}
 		matches[matchID] = match
 
