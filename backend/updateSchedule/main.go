@@ -33,21 +33,7 @@ type Event struct {
 	Match     json.RawMessage `json:"match"`
 }
 
-type Match struct {
-	ID        string      `json:"-"`
-	StartTime string      `json:":time"`
-	State     string      `json:":state"`
-	Teams     [2]string   `json:":teams"`
-	Strategy  Strategy    `json:":strat"`
-	Games     interface{} `json:"-"`
-}
-
-type Strategy struct {
-	Type  string `json:"type"`
-	Count int    `json:"count"`
-}
-
-func isEqual(a, b Match) bool {
+func isEqual(a, b common.Match) bool {
 	if &a == &b {
 		return true
 	}
@@ -71,7 +57,7 @@ var (
 	// Since Lambda is kept warm, it will save global variables.
 	// prevSchedule and prevMatches are essentially caches
 	prevSchedule   = make(map[int][]byte)
-	prevMatches    map[string]Match
+	prevMatches    map[string]common.Match
 	prevMatchesAge time.Time
 
 	db = common.ConnectToDynamoDb()
@@ -81,7 +67,7 @@ func handler() {
 	log.SetFlags(log.Lshortfile)
 	if prevMatchesAge.IsZero() || time.Now().Sub(prevMatchesAge).Minutes() >= 60 {
 		println("Making new prevMatches map")
-		prevMatches = make(map[string]Match)
+		prevMatches = make(map[string]common.Match)
 		prevMatchesAge = time.Now()
 	}
 
@@ -160,7 +146,7 @@ func createSchedule(scheduleBytes []byte, pageNumber int) (*Schedule, string, er
 	return &schedule, scheduleResult.String(), nil
 }
 
-func getStrategy(rawMatch []byte) (Strategy, error) {
+func getStrategy(rawMatch []byte) (common.Strategy, error) {
 	strategyResult := gjson.GetBytes(rawMatch, "strategy")
 
 	var rawStrategy []byte
@@ -170,7 +156,7 @@ func getStrategy(rawMatch []byte) (Strategy, error) {
 		rawStrategy = []byte(strategyResult.Raw)
 	}
 
-	var strategy Strategy
+	var strategy common.Strategy
 	err := json.Unmarshal(rawStrategy, &strategy)
 	if err != nil {
 		return strategy, err
@@ -185,7 +171,7 @@ func updateDB(wg *sync.WaitGroup, input *dynamodb.UpdateItemInput) {
 	common.CheckDbResponseError(err)
 }
 
-func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []Match) {
+func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []common.Match) {
 	encoder := dynamodbattribute.NewEncoder(func(e *dynamodbattribute.Encoder) {
 		e.EnableEmptyCollections = true
 	})
@@ -259,8 +245,8 @@ func compareAndUpdateDynamoDb(schedule *Schedule, scheduleJSON string) {
 	updateWG := sync.WaitGroup{}
 	updateScheduleInDynamoDb(&updateWG, scheduleJSON, schedule.CurrentPage)
 
-	var matchesToUpdate []Match
-	var matches = make(map[string]Match)
+	var matchesToUpdate []common.Match
+	var matches = make(map[string]common.Match)
 	for _, matchEvent := range matchEvents {
 		if matchEvent.Type != "match" {
 			continue
@@ -281,7 +267,7 @@ func compareAndUpdateDynamoDb(schedule *Schedule, scheduleJSON string) {
 			gamesMap[i] = map[string]interface{}{}
 		}
 
-		match := Match{
+		match := common.Match{
 			ID:        matchID,
 			StartTime: matchEvent.StartTime,
 			State:     matchEvent.State,

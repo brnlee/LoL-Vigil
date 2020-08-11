@@ -54,9 +54,10 @@ func UnmarshalSetAlarmRequest(data string) (common.Alarm, error) {
 	for i, alarmResult := range gameAlarmsResult {
 		alarm := alarmResult.Map()
 		gameAlarms[i] = common.GameAlarm{
-			GameNumber: int(alarm["gameNumber"].Int()),
-			Trigger:    alarm["trigger"].String(),
-			Delay:      int(alarm["delay"].Int()),
+			GameNumber:       int(alarm["gameNumber"].Int()),
+			Trigger:          alarm["trigger"].String(),
+			Delay:            int(alarm["delay"].Int()),
+			HasBeenTriggered: false,
 		}
 	}
 
@@ -101,7 +102,7 @@ func updateAlarmInDB(request common.Alarm) error {
 			updateExpression += ", "
 		}
 	}
-	fmt.Printf("%+v\n%+v\n%s\n", alarmAttributeNames, alarmAttributeValues, updateExpression)
+	//fmt.Printf("%+v\n%+v\n%s\n", alarmAttributeNames, alarmAttributeValues, updateExpression)
 
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String("Matches"),

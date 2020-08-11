@@ -2,6 +2,20 @@ package common
 
 import "encoding/json"
 
+type Match struct {
+	ID        string      `json:"-"`
+	StartTime string      `json:":time"`
+	State     string      `json:":state"`
+	Teams     [2]string   `json:":teams"`
+	Strategy  Strategy    `json:":strat"`
+	Games     interface{} `json:"-"`
+}
+
+type Strategy struct {
+	Type  string `json:"type"`
+	Count int    `json:"count"`
+}
+
 type Alarm struct {
 	DeviceID   string      `json:"deviceID"`
 	MatchID    string      `json:"-"`
@@ -9,9 +23,10 @@ type Alarm struct {
 }
 
 type GameAlarm struct {
-	GameNumber int    `json:"-"`
-	Trigger    string `json:"trigger"`
-	Delay      int    `json:"delay"`
+	GameNumber       int    `json:"-"`
+	Trigger          string `json:"trigger"`
+	Delay            int    `json:"delay"`
+	HasBeenTriggered bool   `json:"hasBeenTriggered"`
 }
 
 func UnmarshalGameDetails(data []byte) (GameDetails, error) {
@@ -20,14 +35,11 @@ func UnmarshalGameDetails(data []byte) (GameDetails, error) {
 	return r, err
 }
 
-func (r *GameDetails) MarshalGameDetails() ([]byte, error) {
-	return json.Marshal(r)
-}
-
 type GameDetails struct {
-	EsportsGameID  string  `json:"esportsGameId"`
-	EsportsMatchID string  `json:"esportsMatchId"`
-	Frames         []Frame `json:"frames"`
+	GameID     string  `json:"esportsGameId"`
+	MatchID    string  `json:"esportsMatchId"`
+	GameNumber string  `json:"gameNumber"`
+	Frames     []Frame `json:"frames"`
 }
 
 type Frame struct {

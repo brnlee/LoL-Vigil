@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/brnlee/LoL-Vigil/common"
 	"github.com/tidwall/gjson"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -24,7 +28,7 @@ var (
 )
 
 type Game struct {
-	Number int64  `json:"number"`
+	Number int    `json:"number"`
 	ID     string `json:"id"`
 	State  string `json:"state"`
 }
@@ -32,6 +36,7 @@ type Game struct {
 func handler() {
 	log.SetFlags(log.Lshortfile)
 	liveMatches, err := getLive()
+	fmt.Printf("%+v\n", common.GameDetails{})
 	if err != nil {
 		log.Printf("Error getting live matches: %s\n", err)
 		return
@@ -49,6 +54,11 @@ func checkLiveMatchStatus(matchID string) {
 		log.Printf("Error getting games for match %s: %s\n", matchID, err)
 	}
 
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	svc := sns.New(sess)
+
 	for _, game := range games {
 		if game.State == "completed" {
 			continue
@@ -63,6 +73,21 @@ func checkLiveMatchStatus(matchID string) {
 			if gameDetails.Frames[len(gameDetails.Frames)-1].GameState == common.InGame {
 				// todo: make another lambda func to send notifications
 				log.Println("Sending notifications...")
+
+				gameDetailsJson, err := json.Marshal(gameDetails)
+				if err != nil {
+					log.Printf("Error marshalling game details: %s\n", err)
+				}
+
+				result, err := svc.Publish(&sns.PublishInput{
+					Message:  aws.String(string(gameDetailsJson)),
+					TopicArn: aws.String(os.Getenv("SendNotificationsSNSTopicARN")),
+				})
+				if err != nil {
+					fmt.Printf("Error publishing to SNS: %s\n", err)
+				}
+
+				fmt.Println(*result.MessageId)
 			}
 		}
 	}
@@ -158,6 +183,8 @@ func getGameStatus(game Game) (common.GameDetails, error) {
 	if err != nil {
 		return common.GameDetails{}, err
 	}
+
+	gameDetails.GameNumber = strconv.Itoa(game.Number)
 
 	return gameDetails, nil
 }

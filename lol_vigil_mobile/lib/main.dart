@@ -26,6 +26,7 @@ void main() async {
 
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging();
   firebaseToken = await _firebaseMessaging.getToken();
+  print(firebaseToken);
   _firebaseMessaging.configure(
     onMessage: (Map<String, dynamic> message) async {
       print("onMessage: $message");

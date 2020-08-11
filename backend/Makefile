@@ -64,8 +64,12 @@ check_match_status: checkMatchStatus
 	env GOOS=linux GOARCH=amd64 go build -o check_match_status ./checkMatchStatus
 	$(ZIPPER) -o check_match_status.zip check_match_status
 
+send_alarm_notifications: sendAlarmNotifications
+	env GOOS=linux GOARCH=amd64 go build -o send_alarm_notifications ./sendAlarmNotifications
+	$(ZIPPER) -o send_alarm_notifications.zip send_alarm_notifications
+
 .PHONY: testUpdateSchedule
-testUpdateSchedule: update_schedulcheck_match_statuse
+testUpdateSchedule: update_schedule
 	sam local invoke 'UpdateScheduleFunction' --docker-network lambda-local
 
 .PHONY: testGetSchedule
@@ -84,8 +88,12 @@ testGetLeagues: set_alarm
 testCheckMatchStatus: check_match_status
 	sam local invoke 'CheckMatchStatusFunction' --docker-network lambda-local
 
+.PHONY: testSendAlarmNotifications
+testSendAlarmNotifications: send_alarm_notifications
+	sam local invoke 'SendAlarmNotificationsFunction' --event SNSEvent.json --docker-network lambda-local
+
 .PHONY: build
-build: update_schedule get_schedule get_leagues set_alarm check_match_status
+build: update_schedule get_schedule get_leagues set_alarm check_match_status send_alarm_notifications
 
 .PHONY: run
 run: build
