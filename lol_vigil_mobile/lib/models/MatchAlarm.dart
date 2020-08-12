@@ -43,7 +43,7 @@ class MatchAlarm extends HiveObject {
 @HiveType(typeId: 2)
 class GameAlarm {
   GameAlarm(this.gameNumber) {
-    this.alarmTrigger = this.gameNumber == 1 ? Trigger.ChampionSelectBegins : Trigger.Off;
+    this.alarmTrigger = this.gameNumber == 1 ? Trigger.GameBegins : Trigger.Off;
   }
 
   @HiveField(0)
@@ -70,6 +70,8 @@ class GameAlarm {
         return 'championSelectBegins';
       case Trigger.GameBegins:
         return 'gameBegins';
+      case Trigger.FirstBlood:
+        return 'firstBlood';
       default:
         return 'off';
     }
@@ -83,5 +85,7 @@ enum Trigger {
   @HiveField(1)
   ChampionSelectBegins,
   @HiveField(2)
-  GameBegins
+  GameBegins,
+  @HiveField(3)
+  FirstBlood
 }
