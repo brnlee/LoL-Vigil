@@ -45,7 +45,10 @@
                 android:name="io.flutter.embedding.android.SplashScreenDrawable"
                 android:resource="@drawable/launch_background" />
         </activity>
-        <activity android:name=".AlarmActivity" android:theme="@style/LaunchTheme"/>
+        <activity
+            android:name=".AlarmActivity"
+            android:launchMode="singleInstance"
+            android:theme="@style/LaunchTheme" />
         <!--
  Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java
@@ -54,6 +57,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.INTERNET" />
 
