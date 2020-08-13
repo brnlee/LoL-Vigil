@@ -4,6 +4,8 @@ import android.app.*
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
@@ -40,6 +42,12 @@ class AlarmActivity : Activity() {
 
         if (ringtone == null)
             ringtone = RingtoneManager.getRingtone(this, alarmURI)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+            ringtone?.audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
+        else
+            ringtone?.streamType = AudioManager.STREAM_ALARM
+
         if (!ringtone?.isPlaying!!)
             ringtone?.play()
     }
