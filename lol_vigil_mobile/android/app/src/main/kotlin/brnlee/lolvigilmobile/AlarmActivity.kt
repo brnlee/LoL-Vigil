@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
@@ -24,32 +23,29 @@ class AlarmActivity : Activity() {
         const val CHANNEL_ID = "lolVigil"
         private var notificationChannel = false
         private var notificationID = AtomicInteger(0)
+
         private var ringtone: Ringtone? = null
+        private var previousBuilder: NotificationCompat.Builder? = null
+        private var previousNotificationTitle: String? = null
 
         fun getNotificationID(): Int {
             return notificationID.incrementAndGet()
         }
     }
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         Log.d("tag", intent.getStringExtra("match"))
+
         init(intent)
 
         val alarmURI = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-
-        if (ringtone == null)
+        if (ringtone == null) {
             ringtone = RingtoneManager.getRingtone(this, alarmURI)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
             ringtone?.audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
-        else
-            ringtone?.streamType = AudioManager.STREAM_ALARM
-
-        if (!ringtone?.isPlaying!!)
             ringtone?.play()
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -58,13 +54,16 @@ class AlarmActivity : Activity() {
     }
 
     private fun init(intent: Intent?) {
-        val id = getNotificationID()
-        val title =
+        updateMissedNotification()
+
+        previousNotificationTitle =
                 if (intent != null)
                     intent.getStringExtra("match")
                 else
                     ""
-        dispatchNotification(id, title)
+
+        val id = getNotificationID()
+        dispatchNotification(id)
 
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         if (keyguardManager.isKeyguardLocked) {
@@ -91,13 +90,12 @@ class AlarmActivity : Activity() {
                     cancel(id)
                 }
                 ringtone?.stop()
+                ringtone = null
                 finish()
             }
         } else
             finish()
-
     }
-
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -107,7 +105,7 @@ class AlarmActivity : Activity() {
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
             }
-//            channel.setSound(null, null)
+            channel.setSound(null, null)
             val notificationManager: NotificationManager =
                     getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
@@ -115,29 +113,50 @@ class AlarmActivity : Activity() {
         }
     }
 
-    private fun dispatchNotification(id: Int, title: String) {
+    private fun dispatchNotification(id: Int) {
         createNotificationChannel()
 
-        val intent = Intent(this, MyBroadcastReceiver::class.java)
+        val intent = Intent(this, NotificationDismissedBroadcastReceiver::class.java)
+                .putExtra("brnlee.lolvigilmobile.id", id)
+//        Using action instead of extras because for some reason, extras wasn't being properly passed to the BroadcastReceiver
+//        https://stackoverflow.com/questions/38775285/android-7-broadcastreceiver-onreceive-intent-getextras-missing-data
+        intent.action = id.toString()
         val pendingIntent = PendingIntent.getBroadcast(this, 0, intent, 0)
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        previousBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.common_google_signin_btn_icon_dark)
-                .setContentTitle(title)
+                .setContentTitle(previousNotificationTitle)
                 .setContentText(id.toString())
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setSound(null)
                 .setDeleteIntent(pendingIntent)
                 .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
 
         with(NotificationManagerCompat.from(this)) {
-            notify(id, builder.build())
+            notify(id, previousBuilder?.build()!!)
         }
     }
 
-    class MyBroadcastReceiver : BroadcastReceiver() {
+    fun updateMissedNotification() {
+        if (previousNotificationTitle != null && previousBuilder != null && !previousNotificationTitle?.startsWith("Missed: ")!!) {
+            previousNotificationTitle = "Missed: $previousNotificationTitle"
+            previousBuilder?.setContentTitle(previousNotificationTitle)
+            with(NotificationManagerCompat.from(this)) {
+                notify(notificationID.toInt(), previousBuilder?.build()!!)
+            }
+        }
+    }
+
+    class NotificationDismissedBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            ringtone?.stop()
+            val id = intent.action
+            if (id == notificationID.toString()) {
+                ringtone?.stop()
+                ringtone = null
+                previousBuilder = null
+                previousNotificationTitle = null
+            }
         }
     }
 }
