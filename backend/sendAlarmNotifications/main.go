@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
@@ -70,6 +71,16 @@ func handler(snsEvent events.SNSEvent) {
 			}
 		}
 
+		updateExpression := ""
+		alarmAttributeNames := map[string]*string{
+			"#hasBeenTriggered": aws.String("hasBeenTriggered"),
+		}
+		gameNumberKey := fmt.Sprintf("#game%d", gameNumber)
+		alarmAttributeNames[gameNumberKey] = aws.String(gameDetails.GameNumber)
+
+		//alarmAttributeNames["#deviceID"] = aws.String(request.DeviceID)
+		deviceIndex := 0
+
 		// Iterates through map of alarms (+GameStartTime)
 		for deviceToken, gameAlarm := range gameAlarms {
 			if gameAlarm == nil {
@@ -95,16 +106,51 @@ func handler(snsEvent events.SNSEvent) {
 
 			switch alarm.Trigger {
 			case "gameBegins":
-				if !gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay {
-					println("Game Begins Trigger")
-					sendNotification(deviceToken)
+				log.Println("Game Begins Trigger")
+				if !(!gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay) {
+					continue
 				}
 			case "firstBlood":
-				if !firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay {
-					println("First Blood Trigger")
-					sendNotification(deviceToken)
+				log.Println("First Blood Trigger")
+				if !(!firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay) {
+					continue
 				}
 			}
+
+			if sendNotification(deviceToken) {
+				if updateExpression == "" {
+					updateExpression = "SET "
+				} else {
+					updateExpression += ", "
+				}
+
+				// Set hasBeenTriggered to True
+				deviceKey := fmt.Sprintf("#Device%d", deviceIndex)
+				alarmAttributeNames[deviceKey] = aws.String(deviceToken)
+				updateExpression += fmt.Sprintf("gameAlarms.%s.%s.#hasBeenTriggered = :true", gameNumberKey, deviceKey)
+				deviceIndex += 1
+			}
+		}
+
+		// Execute update expression to set alarms' hasBeenTriggered to True
+		if updateExpression != "" {
+			input := &dynamodb.UpdateItemInput{
+				TableName: aws.String("Matches"),
+				Key: map[string]*dynamodb.AttributeValue{
+					"id": {
+						N: aws.String(gameDetails.MatchID),
+					},
+				},
+				ExpressionAttributeNames: alarmAttributeNames,
+				ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+					":true": {
+						BOOL: aws.Bool(true),
+					},
+				},
+				UpdateExpression: aws.String(updateExpression),
+			}
+			_, err = db.UpdateItem(input)
+			common.CheckDbResponseError(err)
 		}
 	}
 }
@@ -161,7 +207,7 @@ func getGameAlarmsAndTimestamps(gameDetails common.GameDetails) (map[string]inte
 		matchTimestampsMap[gameDetails.GameNumber].(map[string]interface{})
 }
 
-func sendNotification(deviceToken string) {
+func sendNotification(deviceToken string) bool {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -174,7 +220,7 @@ func sendNotification(deviceToken string) {
 	})
 	if err != nil {
 		log.Printf("Error creating platform endpoint: %s\n", err)
-		return
+		return false
 	}
 
 	gcmMessage := GCMMessage{
@@ -186,7 +232,7 @@ func sendNotification(deviceToken string) {
 	gcmMessageJson, err := json.Marshal(gcmMessage)
 	if err != nil {
 		log.Printf("Error marshalling GCMMessage: %s\n", err)
-		return
+		return false
 	}
 
 	message := SNSMessage{
@@ -196,7 +242,7 @@ func sendNotification(deviceToken string) {
 	messageJSON, err := json.Marshal(message)
 	if err != nil {
 		log.Printf("Error marshalling SNS message to JSON: %s\n", err)
-		return
+		return false
 	}
 
 	input := &sns.PublishInput{
@@ -207,63 +253,64 @@ func sendNotification(deviceToken string) {
 	_, err = svc.Publish(input)
 	if err != nil {
 		log.Printf("Error publushing message: %s\n", err)
-		return
+		return false
 	}
 
 	log.Printf("Sent notification to %s\n", deviceToken)
+	return true
 }
 
-func hardcodedSendNotification() {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	svc := sns.New(sess)
-
-	resp, err := svc.CreatePlatformEndpoint(&sns.CreatePlatformEndpointInput{
-		PlatformApplicationArn: aws.String(os.Getenv("SNSApplicationARN")),
-		Token:                  aws.String(os.Getenv("TestToken")),
-	})
-	if err != nil {
-		log.Printf("Error creating platform endpoint: %s\n", err)
-		return
-	}
-
-	gcmMessage := GCMMessage{
-		Data: DataMessage{
-			Message: "This is a test notification.",
-		},
-	}
-
-	g, err := json.Marshal(gcmMessage)
-	if err != nil {
-		log.Printf("Error marshalling GCMMessage: %s\n", err)
-		return
-	}
-
-	message := SNSMessage{
-		GCM: string(g),
-	}
-
-	messageJSON, err := json.Marshal(message)
-	if err != nil {
-		log.Printf("Error marshalling GCM message to JSON: %s\n", err)
-		return
-	}
-
-	log.Println(string(messageJSON))
-
-	input := &sns.PublishInput{
-		Message:          aws.String(string(messageJSON)),
-		MessageStructure: aws.String("json"),
-		TargetArn:        aws.String(*resp.EndpointArn),
-	}
-	_, err = svc.Publish(input)
-	if err != nil {
-		log.Printf("Error publushing message: %s\n", err)
-		return
-	}
-}
+//func hardcodedSendNotification() {
+//	sess := session.Must(session.NewSessionWithOptions(session.Options{
+//		SharedConfigState: session.SharedConfigEnable,
+//	}))
+//
+//	svc := sns.New(sess)
+//
+//	resp, err := svc.CreatePlatformEndpoint(&sns.CreatePlatformEndpointInput{
+//		PlatformApplicationArn: aws.String(os.Getenv("SNSApplicationARN")),
+//		Token:                  aws.String(os.Getenv("TestToken")),
+//	})
+//	if err != nil {
+//		log.Printf("Error creating platform endpoint: %s\n", err)
+//		return
+//	}
+//
+//	gcmMessage := GCMMessage{
+//		Data: DataMessage{
+//			Message: "This is a test notification.",
+//		},
+//	}
+//
+//	g, err := json.Marshal(gcmMessage)
+//	if err != nil {
+//		log.Printf("Error marshalling GCMMessage: %s\n", err)
+//		return
+//	}
+//
+//	message := SNSMessage{
+//		GCM: string(g),
+//	}
+//
+//	messageJSON, err := json.Marshal(message)
+//	if err != nil {
+//		log.Printf("Error marshalling GCM message to JSON: %s\n", err)
+//		return
+//	}
+//
+//	log.Println(string(messageJSON))
+//
+//	input := &sns.PublishInput{
+//		Message:          aws.String(string(messageJSON)),
+//		MessageStructure: aws.String("json"),
+//		TargetArn:        aws.String(*resp.EndpointArn),
+//	}
+//	_, err = svc.Publish(input)
+//	if err != nil {
+//		log.Printf("Error publushing message: %s\n", err)
+//		return
+//	}
+//}
 
 func main() {
 	lambda.Start(handler)

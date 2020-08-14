@@ -107,7 +107,7 @@ func updateAlarmInDB(request common.Alarm) error {
 
 		updateExpression += fmt.Sprintf("gameAlarms.%s.#deviceID = %s", gameNumberKey, gameAlarmKey)
 	}
-	//fmt.Printf("%+v\n%+v\n%s\n", alarmAttributeNames, alarmAttributeValues, updateExpression)
+	log.Printf("%+v\n%s\n", alarmAttributeValues, updateExpression)
 
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String("Matches"),
