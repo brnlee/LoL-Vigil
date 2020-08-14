@@ -126,7 +126,6 @@ func handler(snsEvent events.SNSEvent) {
 			case "firstBlood":
 				log.Println("First Blood Trigger")
 				if !firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay {
-					triggerDescription += "first blood"
 					if triggerDescription == "" {
 						triggerDescription += "First blood has been shed"
 					} else {
