@@ -15,10 +15,6 @@ import (
 	"strings"
 )
 
-//func (r *Alarm) MarshalGameDetails() ([]byte, error) {
-//	return json.MarshalGameDetails(r)
-//}
-
 var (
 	db = common.ConnectToDynamoDb()
 )

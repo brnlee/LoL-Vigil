@@ -47,10 +47,13 @@ func isEqual(a, b common.Match) bool {
 	return true
 }
 
+const (
+	getScheduleBaseURL = "https://esports-api.lolesports.com/persisted/gw/getSchedule?hl=en-US"
+)
+
 var (
-	APIKey             = os.Getenv("APIKEY")
-	getScheduleAddress = "https://esports-api.lolesports.com/persisted/gw/getSchedule?hl=en-US"
-	client             = &http.Client{
+	APIKey = os.Getenv("APIKEY")
+	client = &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
@@ -97,11 +100,12 @@ func handler() {
 }
 
 func pullSchedule(pageToken string) ([]byte, error) {
+	getScheduleURL := getScheduleBaseURL
 	if pageToken != "" {
-		getScheduleAddress += fmt.Sprintf("&pageToken=%s", pageToken)
+		getScheduleURL += fmt.Sprintf("&pageToken=%s", pageToken)
 	}
 
-	req, err := http.NewRequest("GET", getScheduleAddress, nil)
+	req, err := http.NewRequest("GET", getScheduleURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +181,6 @@ func updateMatchesInDynamoDb(wg *sync.WaitGroup, matches []common.Match) {
 	})
 
 	for _, match := range matches {
-
 		matchJson, err := dynamodbattribute.MarshalMap(match)
 		if err != nil {
 			log.Println("Error marshalling match", err)

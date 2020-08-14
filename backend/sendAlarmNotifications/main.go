@@ -17,10 +17,6 @@ import (
 	"time"
 )
 
-var (
-	db = common.ConnectToDynamoDb()
-)
-
 type SNSMessage struct {
 	GCM string `json:"GCM"`
 }
@@ -37,6 +33,10 @@ type AlarmNotification struct {
 	Matchup string `json:"matchup"`
 	Trigger string `json:"trigger"`
 }
+
+var (
+	db = common.ConnectToDynamoDb()
+)
 
 func handler(snsEvent events.SNSEvent) {
 	//hardcodedSendNotification()

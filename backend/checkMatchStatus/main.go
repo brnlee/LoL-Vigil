@@ -160,9 +160,9 @@ func getMatch(matchID string) (string, []Game, error) {
 
 	games := make([]Game, numGames)
 	gamesArrayResult := gjson.GetBytes(responseBytes, "data.event.match.games")
-	matchup := fmt.Sprintf("%s\nvs\n%s",
-		gjson.GetBytes(responseBytes, "data.event.match.teams.0").String(),
-		gjson.GetBytes(responseBytes, "data.event.match.teams.1").String())
+	matchup := fmt.Sprintf("%s\nvs.\n%s",
+		gjson.GetBytes(responseBytes, "data.event.match.teams.0.name").String(),
+		gjson.GetBytes(responseBytes, "data.event.match.teams.1.name").String())
 
 	for i, gameResult := range gamesArrayResult.Array() {
 		var rawGame []byte
