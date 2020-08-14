@@ -27,16 +27,16 @@ type SNSMessage struct {
 
 type GCMMessage struct {
 	Data DataMessage `json:"data,omitempty"`
-	//Notification NotificationMessaage `json:"notification,omitempty"`
 }
 
 type DataMessage struct {
-	Message string `json:"message"`
+	Message AlarmNotification `json:"message"`
 }
 
-//type NotificationMessaage struct {
-//	Text string `json:"text"`
-//}
+type AlarmNotification struct {
+	Matchup string `json:"matchup"`
+	Trigger string `json:"trigger"`
+}
 
 func handler(snsEvent events.SNSEvent) {
 	//hardcodedSendNotification()
@@ -104,20 +104,39 @@ func handler(snsEvent events.SNSEvent) {
 
 			log.Printf("Game Alarm\n\tDeviceID: %s\tAlarm: %+v\tDelay: %s\n", deviceToken, alarm, delay)
 
+			triggerDescription := ""
+			if alarm.Delay > 0 {
+				triggerDescription += fmt.Sprintf("It has been %d minutes since ", alarm.Delay)
+			}
+
+			notificationWasSent := false
+
 			switch alarm.Trigger {
 			case "gameBegins":
 				log.Println("Game Begins Trigger")
-				if !(!gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay) {
-					continue
+				if !gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay {
+					if triggerDescription == "" {
+						triggerDescription += "The game has started"
+					} else {
+						triggerDescription += "the game began"
+					}
+
+					notificationWasSent = sendNotification(deviceToken, gameDetails.Matchup, triggerDescription)
 				}
 			case "firstBlood":
 				log.Println("First Blood Trigger")
-				if !(!firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay) {
-					continue
+				if !firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay {
+					triggerDescription += "first blood"
+					if triggerDescription == "" {
+						triggerDescription += "First blood has been shed"
+					} else {
+						triggerDescription += "first blood had been shed"
+					}
+					notificationWasSent = sendNotification(deviceToken, gameDetails.Matchup, triggerDescription)
 				}
 			}
 
-			if sendNotification(deviceToken) {
+			if notificationWasSent {
 				if updateExpression == "" {
 					updateExpression = "SET "
 				} else {
@@ -207,7 +226,7 @@ func getGameAlarmsAndTimestamps(gameDetails common.GameDetails) (map[string]inte
 		matchTimestampsMap[gameDetails.GameNumber].(map[string]interface{})
 }
 
-func sendNotification(deviceToken string) bool {
+func sendNotification(deviceToken string, matchup string, trigger string) bool {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -225,9 +244,14 @@ func sendNotification(deviceToken string) bool {
 
 	gcmMessage := GCMMessage{
 		Data: DataMessage{
-			Message: "This is a test notification.",
+			Message: AlarmNotification{
+				Matchup: matchup,
+				Trigger: trigger,
+			},
 		},
 	}
+
+	log.Printf("%+v\n", gcmMessage)
 
 	gcmMessageJson, err := json.Marshal(gcmMessage)
 	if err != nil {

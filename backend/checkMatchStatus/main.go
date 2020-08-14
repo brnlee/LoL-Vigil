@@ -52,7 +52,7 @@ func handler() {
 	liveMatchIDs := gjson.GetBytes(liveMatches, "data.schedule.events.#.match.id")
 	var wg sync.WaitGroup
 	for _, matchID := range liveMatchIDs.Array() {
-		log.Println(matchID)
+		log.Printf("Live Match: %s\n", matchID)
 		wg.Add(1)
 		go checkLiveMatchStatus(matchID.String(), &wg)
 	}
@@ -62,7 +62,8 @@ func handler() {
 
 func checkLiveMatchStatus(matchID string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	games, err := getGames(matchID)
+
+	matchup, games, err := getMatch(matchID)
 	if err != nil {
 		log.Printf("Error getting games for match %s: %s\n", matchID, err)
 		return
@@ -80,22 +81,23 @@ func checkLiveMatchStatus(matchID string, wg *sync.WaitGroup) {
 			break
 		} else if game.State == "inProgress" {
 			gameDetails, err := getGameStatus(game)
-			//log.Printf("%+v\n", gameDetails)
 			if err != nil {
 				log.Printf("Error getting game status for %s-%s: %s\n", matchID, game.ID, err)
 				return
 			}
 
-			if gameDetails.Frames[len(gameDetails.Frames)-1].GameState == common.InGame {
+			numFrames := len(gameDetails.Frames)
+			if numFrames > 0 && gameDetails.Frames[numFrames-1].GameState == common.InGame {
 				updateTimestampsInDB(gameDetails)
+				log.Printf("GameDetails: %s\t%s\t%s\n", gameDetails.MatchID, gameDetails.GameID, gameDetails.GameNumber)
+
+				gameDetails.Matchup = matchup
 
 				gameDetailsJson, err := json.Marshal(gameDetails)
 				if err != nil {
 					log.Printf("Error marshalling game details: %s\n", err)
 					return
 				}
-
-				log.Println(gameDetailsJson)
 
 				result, err := svc.Publish(&sns.PublishInput{
 					Message:  aws.String(string(gameDetailsJson)),
@@ -106,7 +108,7 @@ func checkLiveMatchStatus(matchID string, wg *sync.WaitGroup) {
 					return
 				}
 
-				log.Println(*result.MessageId)
+				log.Printf("Sent SNS Message: %s\n", *result.MessageId)
 			}
 		}
 	}
@@ -134,30 +136,34 @@ func getLive() ([]byte, error) {
 	return responseBytes, nil
 }
 
-func getGames(matchID string) ([]Game, error) {
+func getMatch(matchID string) (string, []Game, error) {
 	eventDetailsAddress := GetEventDetails + fmt.Sprintf("&id=%s", matchID)
 	req, err := http.NewRequest("GET", eventDetailsAddress, nil)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	req.Header.Add("x-api-key", APIKey)
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	} else if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Non 200 Response found while getting live game IDs: %s\n", responseBytes)
+		return "", nil, fmt.Errorf("Non 200 Response found while getting live game IDs: %s\n", responseBytes)
 	}
 
 	numGames := gjson.GetBytes(responseBytes, "data.event.match.strategy.count").Int()
 
 	games := make([]Game, numGames)
 	gamesArrayResult := gjson.GetBytes(responseBytes, "data.event.match.games")
+	matchup := fmt.Sprintf("%s\nvs\n%s",
+		gjson.GetBytes(responseBytes, "data.event.match.teams.0").String(),
+		gjson.GetBytes(responseBytes, "data.event.match.teams.1").String())
+
 	for i, gameResult := range gamesArrayResult.Array() {
 		var rawGame []byte
 		if gameResult.Index > 0 {
@@ -169,12 +175,12 @@ func getGames(matchID string) ([]Game, error) {
 		var game Game
 		err := json.Unmarshal(rawGame, &game)
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
 		games[i] = game
 	}
 
-	return games, nil
+	return matchup, games, nil
 }
 
 func getGameStatus(game Game) (common.GameDetails, error) {

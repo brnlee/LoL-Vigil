@@ -49,6 +49,7 @@ type GameDetails struct {
 	GameID     string  `json:"esportsGameId"`
 	MatchID    string  `json:"esportsMatchId"`
 	GameNumber string  `json:"gameNumber"`
+	Matchup    string  `json:"matchup"`
 	Frames     []Frame `json:"frames"`
 }
 
