@@ -36,7 +36,8 @@ class AlarmActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Log.d("tag", intent.getStringExtra("match"))
+        Log.d("tag", "Matchup: ${intent.getStringExtra("matchup")}")
+        Log.d("", "Trigger: ${intent.getStringExtra("trigger")}")
 
         init(intent)
 
@@ -58,12 +59,12 @@ class AlarmActivity : Activity() {
 
         previousNotificationTitle =
                 if (intent != null)
-                    intent.getStringExtra("match")
+                    intent.getStringExtra("matchup")
                 else
                     ""
 
         val id = getNotificationID()
-        dispatchNotification(id)
+        dispatchNotification(id, intent?.getStringExtra("trigger"))
 
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         if (keyguardManager.isKeyguardLocked) {
@@ -82,7 +83,7 @@ class AlarmActivity : Activity() {
             }
 
             val alarmTitle = findViewById<TextView>(R.id.alarmTitle)
-            alarmTitle.text = intent?.getStringExtra("match")
+            alarmTitle.text = intent?.getStringExtra("matchup")
 
             val dismissButton = findViewById<Button>(R.id.dismissButton)
             dismissButton.setOnClickListener {
@@ -113,7 +114,7 @@ class AlarmActivity : Activity() {
         }
     }
 
-    private fun dispatchNotification(id: Int) {
+    private fun dispatchNotification(id: Int, trigger: String?) {
         createNotificationChannel()
 
         val intent = Intent(this, NotificationDismissedBroadcastReceiver::class.java)
@@ -126,7 +127,7 @@ class AlarmActivity : Activity() {
         previousBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.common_google_signin_btn_icon_dark)
                 .setContentTitle(previousNotificationTitle)
-                .setContentText(id.toString())
+                .setContentText(trigger)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setSound(null)
                 .setDeleteIntent(pendingIntent)

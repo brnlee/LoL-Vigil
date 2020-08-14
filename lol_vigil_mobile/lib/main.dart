@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:lolvigilmobile/models/MatchAlarm.dart';
+import 'package:lolvigilmobile/models/fcmMessage.dart';
 import 'package:lolvigilmobile/utils/androidHelpers.dart';
 import 'package:lolvigilmobile/widgets/matchList.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -32,26 +35,19 @@ void main() async {
   print(firebaseToken);
 
   _firebaseMessaging.configure(
-    onMessage: (Map<String, dynamic> message) async {
-      print("onMessage: $message");
-      if (message.containsKey('data')) launchAlarm(message['data']);
-    },
-    onBackgroundMessage: myBackgroundMessageHandler,
-    onLaunch: (Map<String, dynamic> message) async {
-      print("onLaunch: $message");
-    },
-    onResume: (Map<String, dynamic> message) async {
-      print("onResume: $message");
-    },
+    onMessage: (Map<String, dynamic> message) async => parseFCMMessage(message),
+    onBackgroundMessage: parseFCMMessage,
   );
 
   runApp(App());
 }
 
+Future<dynamic> parseFCMMessage(Map<String, dynamic> fcmMessage) {
+  print(fcmMessage);
 
-Future<dynamic> myBackgroundMessageHandler(Map<String, dynamic> message) {
-  print(message);
-
-  if (message.containsKey('data')) launchAlarm(message['data']);
+  if (fcmMessage.containsKey('data')) {
+    dynamic data = fcmMessage['data'];
+    Message message = Message.fromJson(json.decode(data["message"]));
+    launchAlarm(message);
+  }
 }
-
