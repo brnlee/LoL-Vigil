@@ -101,10 +101,11 @@ func updateAlarmInDB(request common.Alarm) error {
 		gameAlarmKey := fmt.Sprintf(":game%dAlarm", alarm.GameNumber)
 		alarmAttributeValues[gameAlarmKey] = alarmJson
 
-		updateExpression += fmt.Sprintf("gameAlarms.%s.#deviceID = %s", gameNumberKey, gameAlarmKey)
-		if alarm.GameNumber != len(request.GameAlarms) {
+		if updateExpression != "SET " {
 			updateExpression += ", "
 		}
+
+		updateExpression += fmt.Sprintf("gameAlarms.%s.#deviceID = %s", gameNumberKey, gameAlarmKey)
 	}
 	//fmt.Printf("%+v\n%+v\n%s\n", alarmAttributeNames, alarmAttributeValues, updateExpression)
 

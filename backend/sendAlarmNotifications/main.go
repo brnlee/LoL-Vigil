@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
@@ -39,6 +38,7 @@ type DataMessage struct {
 //}
 
 func handler(snsEvent events.SNSEvent) {
+	//hardcodedSendNotification()
 	for _, event := range snsEvent.Records {
 		gameDetails, err := common.UnmarshalGameDetails([]byte(event.SNS.Message))
 		if err != nil {
@@ -53,13 +53,21 @@ func handler(snsEvent events.SNSEvent) {
 
 		gameNumber, _ := strconv.Atoi(gameDetails.GameNumber)
 
-		gameStartTime, err := time.Parse(time.RFC3339, gameTimestamps["gameBegins"].(string))
-		if err != nil {
-			continue
+		var gameStartTime time.Time
+		var firstBloodTime time.Time
+
+		if gameBegins, ok := gameTimestamps["gameBegins"]; ok {
+			gameStartTime, err = time.Parse(time.RFC3339, gameBegins.(string))
+			if err != nil {
+				continue
+			}
 		}
-		firstBloodTime, err := time.Parse(time.RFC3339, gameTimestamps["firstBlood"].(string))
-		if err != nil {
-			continue
+
+		if firstBlood, ok := gameTimestamps["firstBlood"]; ok {
+			firstBloodTime, err = time.Parse(time.RFC3339, firstBlood.(string))
+			if err != nil {
+				continue
+			}
 		}
 
 		// Iterates through map of alarms (+GameStartTime)
@@ -83,19 +91,18 @@ func handler(snsEvent events.SNSEvent) {
 			currentTime := time.Now()
 			delay := time.Duration(alarm.Delay) * time.Minute
 
-			fmt.Printf("DeviceID: %s\tAlarm: %+v\tDelay: %s\n", deviceToken, alarm, delay)
+			log.Printf("Game Alarm\n\tDeviceID: %s\tAlarm: %+v\tDelay: %s\n", deviceToken, alarm, delay)
 
 			switch alarm.Trigger {
 			case "gameBegins":
 				if !gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay {
-					// todo: SNS
 					println("Game Begins Trigger")
 					sendNotification(deviceToken)
 				}
 			case "firstBlood":
 				if !firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay {
-					// todo: SNS
 					println("First Blood Trigger")
+					sendNotification(deviceToken)
 				}
 			}
 		}
@@ -202,6 +209,8 @@ func sendNotification(deviceToken string) {
 		log.Printf("Error publushing message: %s\n", err)
 		return
 	}
+
+	log.Printf("Sent notification to %s\n", deviceToken)
 }
 
 func hardcodedSendNotification() {
@@ -242,7 +251,7 @@ func hardcodedSendNotification() {
 		return
 	}
 
-	println(string(messageJSON))
+	log.Println(string(messageJSON))
 
 	input := &sns.PublishInput{
 		Message:          aws.String(string(messageJSON)),

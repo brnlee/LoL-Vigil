@@ -21,9 +21,9 @@ type Strategy struct {
 }
 
 type Timestamps struct {
-	ChampionSelectBegins time.Time `json:"champSelectBegins"`
-	GameBegins           time.Time `json:"gameBegins"`
-	FirstBlood           time.Time `json:"firstBlood"`
+	ChampionSelectBegins time.Time `json:"-"`
+	GameBegins           time.Time `json:"-"`
+	FirstBlood           time.Time `json:"-"`
 }
 
 type Alarm struct {
