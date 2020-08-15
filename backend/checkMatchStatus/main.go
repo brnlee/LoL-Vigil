@@ -87,7 +87,8 @@ func checkLiveMatchStatus(matchID string, wg *sync.WaitGroup) {
 			}
 
 			numFrames := len(gameDetails.Frames)
-			if numFrames > 0 && gameDetails.Frames[numFrames-1].GameState == common.InGame {
+			lastFrameGameState := gameDetails.Frames[numFrames-1].GameState
+			if numFrames > 0 && (lastFrameGameState == common.InGame || lastFrameGameState == common.Paused) {
 				updateTimestampsInDB(gameDetails)
 				log.Printf("GameDetails: %s\t%s\t%s\n", gameDetails.MatchID, gameDetails.GameID, gameDetails.GameNumber)
 

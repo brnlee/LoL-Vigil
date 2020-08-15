@@ -30,8 +30,10 @@ type DataMessage struct {
 }
 
 type AlarmNotification struct {
-	Matchup string `json:"matchup"`
-	Trigger string `json:"trigger"`
+	MatchID    string `json:"matchID"`
+	GameNumber string `json:"gameNumber"`
+	Matchup    string `json:"matchup"`
+	Trigger    string `json:"trigger"`
 }
 
 var (
@@ -39,7 +41,6 @@ var (
 )
 
 func handler(snsEvent events.SNSEvent) {
-	//hardcodedSendNotification()
 	for _, event := range snsEvent.Records {
 		gameDetails, err := common.UnmarshalGameDetails([]byte(event.SNS.Message))
 		if err != nil {
@@ -121,7 +122,7 @@ func handler(snsEvent events.SNSEvent) {
 						triggerDescription += "the game began"
 					}
 
-					notificationWasSent = sendNotification(deviceToken, gameDetails.Matchup, triggerDescription)
+					notificationWasSent = sendNotification(deviceToken, gameDetails, triggerDescription)
 				}
 			case "firstBlood":
 				log.Println("First Blood Trigger")
@@ -131,7 +132,7 @@ func handler(snsEvent events.SNSEvent) {
 					} else {
 						triggerDescription += "first blood had been shed"
 					}
-					notificationWasSent = sendNotification(deviceToken, gameDetails.Matchup, triggerDescription)
+					notificationWasSent = sendNotification(deviceToken, gameDetails, triggerDescription)
 				}
 			}
 
@@ -225,7 +226,7 @@ func getGameAlarmsAndTimestamps(gameDetails common.GameDetails) (map[string]inte
 		matchTimestampsMap[gameDetails.GameNumber].(map[string]interface{})
 }
 
-func sendNotification(deviceToken string, matchup string, trigger string) bool {
+func sendNotification(deviceToken string, gameDetails common.GameDetails, trigger string) bool {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -244,8 +245,10 @@ func sendNotification(deviceToken string, matchup string, trigger string) bool {
 	gcmMessage := GCMMessage{
 		Data: DataMessage{
 			Message: AlarmNotification{
-				Matchup: matchup,
-				Trigger: trigger,
+				MatchID:    gameDetails.MatchID,
+				GameNumber: gameDetails.GameNumber,
+				Matchup:    gameDetails.Matchup,
+				Trigger:    trigger,
 			},
 		},
 	}
@@ -282,58 +285,6 @@ func sendNotification(deviceToken string, matchup string, trigger string) bool {
 	log.Printf("Sent notification to %s\n", deviceToken)
 	return true
 }
-
-//func hardcodedSendNotification() {
-//	sess := session.Must(session.NewSessionWithOptions(session.Options{
-//		SharedConfigState: session.SharedConfigEnable,
-//	}))
-//
-//	svc := sns.New(sess)
-//
-//	resp, err := svc.CreatePlatformEndpoint(&sns.CreatePlatformEndpointInput{
-//		PlatformApplicationArn: aws.String(os.Getenv("SNSApplicationARN")),
-//		Token:                  aws.String(os.Getenv("TestToken")),
-//	})
-//	if err != nil {
-//		log.Printf("Error creating platform endpoint: %s\n", err)
-//		return
-//	}
-//
-//	gcmMessage := GCMMessage{
-//		Data: DataMessage{
-//			Message: "This is a test notification.",
-//		},
-//	}
-//
-//	g, err := json.Marshal(gcmMessage)
-//	if err != nil {
-//		log.Printf("Error marshalling GCMMessage: %s\n", err)
-//		return
-//	}
-//
-//	message := SNSMessage{
-//		GCM: string(g),
-//	}
-//
-//	messageJSON, err := json.Marshal(message)
-//	if err != nil {
-//		log.Printf("Error marshalling GCM message to JSON: %s\n", err)
-//		return
-//	}
-//
-//	log.Println(string(messageJSON))
-//
-//	input := &sns.PublishInput{
-//		Message:          aws.String(string(messageJSON)),
-//		MessageStructure: aws.String("json"),
-//		TargetArn:        aws.String(*resp.EndpointArn),
-//	}
-//	_, err = svc.Publish(input)
-//	if err != nil {
-//		log.Printf("Error publushing message: %s\n", err)
-//		return
-//	}
-//}
 
 func main() {
 	lambda.Start(handler)
