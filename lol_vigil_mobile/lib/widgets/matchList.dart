@@ -14,8 +14,6 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
   List<Event> _events = List<Event>();
   List<League> _leagues = List<League>();
   Set<String> _leaguesToShow = Set();
-  Map<String, Alarm> _alarms = Map<String, Alarm>();
-  ScrollController _scrollController = ScrollController();
   bool isLoading = false;
 
   @override
@@ -23,17 +21,10 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     super.initState();
     _populateEvents();
     _populateLeagues();
-
-//    _scrollController.addListener(() {
-//      if (_scrollController.position.maxScrollExtent <= _scrollController.position.pixels) {
-//        _populateEvents();
-//      }
-//    });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     Hive.close();
     super.dispose();
   }
@@ -54,15 +45,9 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     Webservice().load(Schedule.get(page)).then((schedule) {
       setState(() => {
             if (page == 1) _events = schedule.events else _events.addAll(schedule.events),
-            _alarms = _setAlarms(_events),
             _nextPage = schedule.hasNextPage ? page + 1 : -1,
           });
     });
-  }
-
-  Map<String, Alarm> _setAlarms(List<Event> events) {
-    return Map.fromIterable(events.map((event) => _alarms[event.match.id] ?? Alarm(event.match.id)),
-        key: (alarm) => alarm.matchID, value: (alarm) => alarm);
   }
 
   Widget _buildItemsForListView(BuildContext context, int index, List dateSeperatedEvents) {
@@ -173,7 +158,6 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
                         opacity: isLoading ? 0.0 : 1.0,
                         child: ListView.builder(
                           cacheExtent: 2.0,
-                          controller: _scrollController,
                           // Add 1 for progress indicator
                           itemCount: _nextPage == -1 ? dateSeperatedEvents.length : dateSeperatedEvents.length + 1,
                           itemBuilder: (context, index) => _buildItemsForListView(context, index, dateSeperatedEvents),

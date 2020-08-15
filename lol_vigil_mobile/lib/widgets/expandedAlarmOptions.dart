@@ -8,8 +8,6 @@ class ExpandedAlarmOptions extends StatelessWidget {
 
   final MatchAlarm _matchAlarm;
 
-  saveAlarm() => _matchAlarm.save();
-
   @override
   Widget build(BuildContext context) {
     return Column(children: [

@@ -35,19 +35,31 @@ void main() async {
   print(firebaseToken);
 
   _firebaseMessaging.configure(
-    onMessage: (Map<String, dynamic> message) async => parseFCMMessage(message),
-    onBackgroundMessage: parseFCMMessage,
+    onMessage: (Map<String, dynamic> message) async => handleFcmMessage(message),
+    onBackgroundMessage: handleFcmMessage,
   );
 
   runApp(App());
 }
 
-Future<dynamic> parseFCMMessage(Map<String, dynamic> fcmMessage) {
+Future<dynamic> handleFcmMessage(Map<String, dynamic> fcmMessage) {
   print(fcmMessage);
 
   if (fcmMessage.containsKey('data')) {
     dynamic data = fcmMessage['data'];
-    Message message = Message.fromJson(json.decode(data["message"]));
-    launchAlarm(message);
+    try {
+      Message message = Message.fromJson(json.decode(data["message"]));
+      launchAlarm(message);
+
+      // Switch the game's alarm trigger to Off
+      Box alarmsBox = Hive.box('MatchAlarms');
+      MatchAlarm alarm = alarmsBox.get(message.matchID);
+      alarm.alarms[message.gameNumber-1].alarmTrigger = Trigger.Off;
+      alarm.save();
+    } catch (e) {
+      print("Error parsing Message and launching Alarm: $e");
+    }
   }
+
+  return null;
 }
