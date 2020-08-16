@@ -1,1 +1,3 @@
-<resources></resources>
+<resources>
+    <string name="dismiss_alarm">Dismiss Alarm</string>
+</resources>
