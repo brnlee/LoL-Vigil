@@ -21,15 +21,25 @@ import java.util.concurrent.atomic.AtomicInteger
 class AlarmActivity : Activity() {
     companion object {
         const val CHANNEL_ID = "lolVigil"
-        private var notificationChannel = false
         private var notificationID = AtomicInteger(0)
+        private var listener: AlarmActivity? = null
 
         private var ringtone: Ringtone? = null
-        private var previousBuilder: NotificationCompat.Builder? = null
-        private var previousNotificationTitle: String? = null
+        private var notificationBuilder: NotificationCompat.Builder? = null
+        private var notificationTitle: String? = null
 
         fun getNotificationID(): Int {
             return notificationID.incrementAndGet()
+        }
+
+        fun clearVariables() {
+            ringtone?.stop()
+            ringtone = null
+            notificationBuilder = null
+            notificationTitle = null
+
+            listener?.finishAndRemoveTask()
+            listener = null
         }
     }
 
@@ -49,25 +59,28 @@ class AlarmActivity : Activity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onDestroy() {
+        Log.d("", "ON DESTROY")
+        super.onDestroy()
+    }
+
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         init(intent)
     }
 
-    private fun init(intent: Intent?) {
+    private fun init(intent: Intent) {
         updateMissedNotification()
 
-        previousNotificationTitle =
-                if (intent != null)
-                    intent.getStringExtra("matchup")
-                else
-                    ""
+        notificationTitle = "${intent.getStringExtra("matchup")} - Game ${intent.getStringExtra("gameNumber")}"
 
         val id = getNotificationID()
-        dispatchNotification(id, intent?.getStringExtra("trigger"))
-
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+
+        dispatchNotification(id, intent.getStringExtra("trigger"))
+
         if (keyguardManager.isKeyguardLocked) {
+            listener = this
             setTheme(R.style.LaunchTheme)
             setContentView(R.layout.activity_alarm)
 
@@ -82,17 +95,14 @@ class AlarmActivity : Activity() {
                 setShowWhenLocked(true)
             }
 
-            val alarmTitle = findViewById<TextView>(R.id.alarmTitle)
-            alarmTitle.text = intent?.getStringExtra("matchup")
+            setLayoutTexts(intent)
 
             val dismissButton = findViewById<Button>(R.id.dismissButton)
             dismissButton.setOnClickListener {
                 with(NotificationManagerCompat.from(this)) {
                     cancel(id)
                 }
-                ringtone?.stop()
-                ringtone = null
-                finish()
+                clearVariables()
             }
         } else
             finish()
@@ -110,7 +120,6 @@ class AlarmActivity : Activity() {
             val notificationManager: NotificationManager =
                     getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
-            notificationChannel = true
         }
     }
 
@@ -124,9 +133,9 @@ class AlarmActivity : Activity() {
         intent.action = id.toString()
         val pendingIntent = PendingIntent.getBroadcast(this, 0, intent, 0)
 
-        previousBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.common_google_signin_btn_icon_dark)
-                .setContentTitle(previousNotificationTitle)
+        notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_name)
+                .setContentTitle(notificationTitle)
                 .setContentText(trigger)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setSound(null)
@@ -135,28 +144,34 @@ class AlarmActivity : Activity() {
                 .setOnlyAlertOnce(true)
 
         with(NotificationManagerCompat.from(this)) {
-            notify(id, previousBuilder?.build()!!)
+            notify(id, notificationBuilder?.build()!!)
         }
     }
 
-    fun updateMissedNotification() {
-        if (previousNotificationTitle != null && previousBuilder != null && !previousNotificationTitle?.startsWith("Missed: ")!!) {
-            previousNotificationTitle = "Missed: $previousNotificationTitle"
-            previousBuilder?.setContentTitle(previousNotificationTitle)
+    private fun updateMissedNotification() {
+        if (notificationTitle != null && notificationBuilder != null && !notificationTitle?.startsWith("Missed: ")!!) {
+            notificationTitle = "Missed: $notificationTitle"
+            notificationBuilder?.setContentTitle(notificationTitle)
             with(NotificationManagerCompat.from(this)) {
-                notify(notificationID.toInt(), previousBuilder?.build()!!)
+                notify(notificationID.toInt(), notificationBuilder?.build()!!)
             }
         }
+    }
+
+    private fun setLayoutTexts(intent: Intent) {
+        findViewById<TextView>(R.id.alarmTitle).text = intent.getStringExtra("matchup")
+
+        val gameNumber = "Game ${intent.getStringExtra("gameNumber")}"
+        findViewById<TextView>(R.id.gameNumber).text = gameNumber
+
+        findViewById<TextView>(R.id.triggerDescription).text = intent.getStringExtra("trigger")
     }
 
     class NotificationDismissedBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val id = intent.action
             if (id == notificationID.toString()) {
-                ringtone?.stop()
-                ringtone = null
-                previousBuilder = null
-                previousNotificationTitle = null
+                clearVariables()
             }
         }
     }

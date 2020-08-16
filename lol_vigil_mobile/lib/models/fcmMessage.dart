@@ -7,13 +7,13 @@ class Message {
   });
 
   String matchID;
-  int gameNumber;
+  String gameNumber;
   String trigger;
   String matchup;
 
   factory Message.fromJson(Map<String, dynamic> json) => Message(
         matchID: json["matchID"],
-        gameNumber: int.parse(json["gameNumber"]),
+        gameNumber: json["gameNumber"],
         trigger: json["trigger"],
         matchup: json["matchup"],
       );

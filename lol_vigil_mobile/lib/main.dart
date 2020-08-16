@@ -36,13 +36,13 @@ void main() async {
 
   _firebaseMessaging.configure(
     onMessage: (Map<String, dynamic> message) async => handleFcmMessage(message),
-    onBackgroundMessage: handleFcmMessage,
+    onBackgroundMessage: backgroundFCMMessageHandler,
   );
 
   runApp(App());
 }
 
-Future<dynamic> handleFcmMessage(Map<String, dynamic> fcmMessage) {
+handleFcmMessage(Map<String, dynamic> fcmMessage) async {
   print(fcmMessage);
 
   if (fcmMessage.containsKey('data')) {
@@ -51,15 +51,22 @@ Future<dynamic> handleFcmMessage(Map<String, dynamic> fcmMessage) {
       Message message = Message.fromJson(json.decode(data["message"]));
       launchAlarm(message);
 
-      // Switch the game's alarm trigger to Off
-      Box alarmsBox = Hive.box('MatchAlarms');
+      Box alarmsBox = await Hive.openBox('MatchAlarms');
       MatchAlarm alarm = alarmsBox.get(message.matchID);
-      alarm.alarms[message.gameNumber-1].alarmTrigger = Trigger.Off;
+      alarm.alarms[int.parse(message.gameNumber) - 1].alarmTrigger = Trigger.Off;
       alarm.save();
     } catch (e) {
       print("Error parsing Message and launching Alarm: $e");
     }
   }
+}
 
-  return null;
+Future<dynamic> backgroundFCMMessageHandler(Map<String, dynamic> fcmMessage) async {
+  if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(MatchAlarmAdapter());
+  if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(GameAlarmAdapter());
+  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(TriggerAdapter());
+
+  await Hive.initFlutter();
+
+  handleFcmMessage(fcmMessage);
 }

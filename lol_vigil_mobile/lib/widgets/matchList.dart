@@ -123,20 +123,20 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Games"),
+        title: Text("Matches"),
         actions: <Widget>[
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: () => _scrollToTop(),
           ),
-          IconButton(
-            icon: Icon(Icons.more_vert),
-            onPressed: () => null,
-          ),
-          IconButton(
-            icon: Icon(Icons.alarm),
-            onPressed: () => Hive.box('matchAlarms').clear(),
-          )
+//          IconButton(
+//            icon: Icon(Icons.more_vert),
+//            onPressed: () => null,
+//          ),
+//          IconButton(
+//            icon: Icon(Icons.alarm),
+//            onPressed: () => Hive.box('matchAlarms').clear(),
+//          )
         ],
       ),
       body: _events.length != 0
