@@ -30,6 +30,24 @@ class _MatchListTileState extends State<MatchListTile> {
   @override
   void initState() {
     alarmsBox = Hive.box('MatchAlarms');
+    setMatchAlarm(widget._event.match.id);
+    super.initState();
+  }
+
+  @override
+  void didUpdateWidget(MatchListTile oldWidget) {
+    alarmsBox.listenable(keys: [matchAlarm.matchID]).removeListener(() {});
+    setMatchAlarm(widget._event.match.id);
+    super.didUpdateWidget(oldWidget);
+  }
+
+  @override
+  void dispose() {
+    alarmsBox.listenable(keys: [matchAlarm.matchID]).removeListener(() {});
+    super.dispose();
+  }
+
+  void setMatchAlarm(String matchID) {
     String matchID = widget._event.match.id;
     if (!alarmsBox.containsKey(matchID)) {
       matchAlarm = MatchAlarm(matchID, widget._event.match.strategy.count);
@@ -47,14 +65,6 @@ class _MatchListTileState extends State<MatchListTile> {
         });
       }
     });
-
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    alarmsBox.listenable(keys: [matchAlarm.matchID]).removeListener(() {});
-    super.dispose();
   }
 
   void makeSetAlarmRequest(MatchAlarm alarm) async {
