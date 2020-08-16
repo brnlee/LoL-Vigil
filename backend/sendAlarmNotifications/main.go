@@ -106,7 +106,9 @@ func handler(snsEvent events.SNSEvent) {
 			log.Printf("Game Alarm\n\tDeviceID: %s\tAlarm: %+v\tDelay: %s\n", deviceToken, alarm, delay)
 
 			triggerDescription := ""
-			if alarm.Delay > 0 {
+			if alarm.Delay == 1 {
+				triggerDescription += "It has been 1 minute since "
+			} else if alarm.Delay > 1 {
 				triggerDescription += fmt.Sprintf("It has been %d minutes since ", alarm.Delay)
 			}
 
@@ -282,7 +284,7 @@ func sendNotification(deviceToken string, gameDetails common.GameDetails, trigge
 		return false
 	}
 
-	log.Printf("Sent notification to %s\n", deviceToken)
+	log.Println("Sent a notification")
 	return true
 }
 
