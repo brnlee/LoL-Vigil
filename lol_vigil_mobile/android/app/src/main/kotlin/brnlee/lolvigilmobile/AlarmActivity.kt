@@ -10,7 +10,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
-import android.widget.Button
+import android.widget.ImageButton
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -59,11 +59,6 @@ class AlarmActivity : Activity() {
         }
     }
 
-    override fun onDestroy() {
-        Log.d("", "ON DESTROY")
-        super.onDestroy()
-    }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         init(intent)
@@ -97,7 +92,7 @@ class AlarmActivity : Activity() {
 
             setLayoutTexts(intent)
 
-            val dismissButton = findViewById<Button>(R.id.dismissButton)
+            val dismissButton = findViewById<ImageButton>(R.id.dismissButton)
             dismissButton.setOnClickListener {
                 with(NotificationManagerCompat.from(this)) {
                     cancel(id)

@@ -50,10 +50,10 @@ class _MatchListTileState extends State<MatchListTile> {
   void setMatchAlarm(String matchID) {
     String matchID = widget._event.match.id;
     if (!alarmsBox.containsKey(matchID)) {
-      matchAlarm = MatchAlarm(matchID, widget._event.match.strategy.count);
+      setState(() => matchAlarm = MatchAlarm(matchID, widget._event.match.strategy.count));
       alarmsBox.put(matchID, matchAlarm);
     } else
-      matchAlarm = alarmsBox.get(matchID);
+      setState(() => matchAlarm = alarmsBox.get(matchID));
 
     alarmsBox.listenable(keys: [matchID]).addListener(() {
       if (mounted && !isPendingUpdate) {

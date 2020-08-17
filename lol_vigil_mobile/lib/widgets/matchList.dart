@@ -68,8 +68,10 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
         ),
         Divider(),
       ]);
-    } else
-      return MatchListTile(dateSeperatedEvents[index]);
+    } else{
+      Event event = dateSeperatedEvents[index] as Event;
+      return MatchListTile(event, key: ValueKey(event.match.id));
+    }
   }
 
   void _scrollToTop() {
@@ -157,7 +159,7 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
                       Opacity(
                         opacity: isLoading ? 0.0 : 1.0,
                         child: ListView.builder(
-                          cacheExtent: 2.0,
+                          cacheExtent: MediaQuery.of(context).size.height,
                           // Add 1 for progress indicator
                           itemCount: _nextPage == -1 ? dateSeperatedEvents.length : dateSeperatedEvents.length + 1,
                           itemBuilder: (context, index) => _buildItemsForListView(context, index, dateSeperatedEvents),

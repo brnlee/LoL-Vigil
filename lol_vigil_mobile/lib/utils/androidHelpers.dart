@@ -16,7 +16,6 @@ void launchAlarm(Message message) {
         'trigger': message.trigger
       },
       flags: [
-        Flag.FLAG_ACTIVITY_NEW_TASK,
         Flag.FLAG_ACTIVITY_NO_ANIMATION
       ]);
 
