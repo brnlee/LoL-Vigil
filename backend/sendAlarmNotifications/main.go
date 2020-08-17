@@ -117,7 +117,7 @@ func handler(snsEvent events.SNSEvent) {
 			switch alarm.Trigger {
 			case "gameBegins":
 				log.Println("Game Begins Trigger")
-				if !gameStartTime.IsZero() && currentTime.Sub(gameStartTime) >= delay {
+				if currentTime.Sub(gameStartTime) >= delay {
 					if triggerDescription == "" {
 						triggerDescription += "The game has started"
 					} else {
@@ -128,7 +128,7 @@ func handler(snsEvent events.SNSEvent) {
 				}
 			case "firstBlood":
 				log.Println("First Blood Trigger")
-				if !firstBloodTime.IsZero() && currentTime.Sub(firstBloodTime) >= delay {
+				if currentTime.Sub(firstBloodTime) >= delay {
 					if triggerDescription == "" {
 						triggerDescription += "First blood has been shed"
 					} else {
