@@ -1,0 +1,214 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description:
+  LoL-Vigil
+  SAM Template for LoL-Vigil
+
+Globals:
+  Function:
+    Timeout: 5
+    Environment:
+      Variables:
+        APIKEY: [Unofficial LoLEsports API Key]
+
+Resources:
+  RestAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      MinimumCompressionSize: 1000
+
+  SendNotificationsSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: SendNotifications
+      TopicName: SendNotifications
+      Subscription:
+        - Endpoint: !GetAtt SendAlarmNotificationsFunction.Arn
+          Protocol: lambda
+
+  InvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt SendAlarmNotificationsFunction.Arn
+      Principal: sns.amazonaws.com
+
+  MatchesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Matches
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: N
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 15
+
+  ScheduleTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Schedule
+      AttributeDefinitions:
+        - AttributeName: page
+          AttributeType: N
+      KeySchema:
+        - AttributeName: page
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 20
+        WriteCapacityUnits: 10
+
+  UpdateScheduleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: update_schedule
+      Runtime: go1.x
+      CodeUri: ./update_schedule.zip
+      Tracing: Active
+      Policies:
+        - AmazonDynamoDBFullAccess
+      Events:
+        Scheduler:
+          Type: Schedule
+          Properties:
+            Name: UpdateSchedule
+            Description: Pulls full schedule from LoLEsports
+            Schedule: rate(5 minutes)
+            Enabled: True
+      Timeout: 30
+
+  GetScheduleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: get_schedule
+      Runtime: go1.x
+      CodeUri: ./get_schedule.zip
+      Tracing: Active
+      Policies:
+        - AmazonDynamoDBFullAccess
+      Events:
+        REST:
+          Type: Api
+          Properties:
+            Path: /get_schedule
+            Method: GET
+            RestApiId:
+              Ref: RestAPI
+
+  GetLeaguesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: get_leagues
+      Runtime: go1.x
+      CodeUri: ./get_leagues.zip
+      Tracing: Active
+      Policies:
+        - AmazonDynamoDBFullAccess
+      Events:
+        REST:
+          Type: Api
+          Properties:
+            Path: /get_leagues
+            Method: GET
+            RestApiId:
+              Ref: RestAPI
+
+  SetAlarmFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: set_alarm
+      Runtime: go1.x
+      CodeUri: ./set_alarm.zip
+      Tracing: Active
+      Policies:
+        - AmazonDynamoDBFullAccess
+      Events:
+        REST:
+          Type: Api
+          Properties:
+            Path: /set_alarm
+            Method: POST
+            RestApiId:
+              Ref: RestAPI
+
+  CheckMatchStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: check_match_status
+      Runtime: go1.x
+      CodeUri: ./check_match_status.zip
+      Tracing: Active
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonSNSFullAccess
+      Events:
+        Scheduler:
+          Type: Schedule
+          Properties:
+            Name: CheckMatchStatus
+            Description: Checks the status of live matches
+            Schedule: rate(1 minute)
+            Enabled: True
+      Environment:
+        Variables:
+          SendNotificationsSNSTopicARN: [Your SendNotification SNS Topic ARN]
+
+  SendAlarmNotificationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: send_alarm_notifications
+      Runtime: go1.x
+      CodeUri: ./send_alarm_notifications.zip
+      Tracing: Active
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonSNSFullAccess
+      Events:
+        SNS:
+          Type: SNS
+          Properties:
+            Topic:
+              Ref: SendNotificationsSNSTopic
+      Timeout: 30
+      Environment:
+        Variables:
+          SNSApplicationARN: [Your SNS Application ARN]
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  GetScheduleAPI:
+    Description: "API Gateway endpoint URL for dev environment for GetScheduleFunction"
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/dev/get_schedule/"
+  GetScheduleFunction:
+    Description: "GetSchedule Function ARN"
+    Value: !GetAtt GetScheduleFunction.Arn
+  GetScheduleFunctionIamRole:
+    Description: "Implicit IAM Role created for GetSchedule function"
+    Value: !GetAtt GetScheduleFunction.Arn
+
+  GetLeaguesAPI:
+    Description: "API Gateway endpoint URL for dev environment for GetLeaguesFunction"
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/dev/get_leagues/"
+  GetLeaguesFunction:
+    Description: "GetLeagues Function ARN"
+    Value: !GetAtt GetLeaguesFunction.Arn
+  GetLeaguesFunctionIamRole:
+    Description: "Implicit IAM Role created for GetLeagues function"
+    Value: !GetAtt GetLeaguesFunction.Arn
+
+  SetAlarmAPI:
+    Description: "API Gateway endpoint URL for dev environment for SetAlarmFunction"
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/dev/set_alarm/"
+  SetAlarmFunction:
+    Description: "SetAlarm Function ARN"
+    Value: !GetAtt SetAlarmFunction.Arn
+  SetAlarmFunctionIamRole:
+    Description: "Implicit IAM Role created for SetAlarm function"
+    Value: !GetAtt SetAlarmFunction.Arn
+

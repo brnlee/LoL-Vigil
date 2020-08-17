@@ -1,9 +1,6 @@
-hello_world.zip
 !/**/
 !*.*
 .idea
 *.zip
 packaged.yaml
-template.yaml
 samconfig.toml
-backend/hello-world
