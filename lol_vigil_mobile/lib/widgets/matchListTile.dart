@@ -58,7 +58,7 @@ class _MatchListTileState extends State<MatchListTile> {
     alarmsBox.listenable(keys: [matchID]).addListener(() {
       if (mounted && !isPendingUpdate) {
         setState(() => isPendingUpdate = true);
-        Future.delayed(const Duration(seconds: 10), () {
+        Future.delayed(const Duration(seconds: 1), () {
           print(alarmsBox.get(matchID).toJson());
           makeSetAlarmRequest(alarmsBox.get(matchID));
           if (mounted) setState(() => isPendingUpdate = false);

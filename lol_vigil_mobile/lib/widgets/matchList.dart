@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive/hive.dart';
+import 'package:lolvigilmobile/models/MatchAlarm.dart';
 import 'package:lolvigilmobile/models/leagues.dart';
 import 'package:lolvigilmobile/models/schedule.dart';
 import 'package:lolvigilmobile/services/webservice.dart';
@@ -21,12 +22,35 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
     super.initState();
     _populateEvents();
     _populateLeagues();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     Hive.close();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.resumed) {
+      Box alarmsToUpdateBox = await Hive.openBox('AlarmsToUpdate');
+      Box alarmsBox = Hive.box('MatchAlarms');
+
+      alarmsToUpdateBox.keys.forEach((matchID) {
+        int gameNumber = int.parse(alarmsToUpdateBox.get(matchID)) - 1;
+
+        MatchAlarm alarm = alarmsBox.get(matchID);
+        alarm.alarms[gameNumber].alarmTrigger = Trigger.Off;
+        alarm.save();
+
+        alarmsToUpdateBox.delete(matchID);
+      });
+
+      alarmsToUpdateBox.close();
+    }
+    super.didChangeAppLifecycleState(state);
   }
 
   void _populateLeagues() {
@@ -68,7 +92,7 @@ class MatchListState extends State<MatchList> with WidgetsBindingObserver {
         ),
         Divider(),
       ]);
-    } else{
+    } else {
       Event event = dateSeperatedEvents[index] as Event;
       return MatchListTile(event, key: ValueKey(event.match.id));
     }
