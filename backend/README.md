@@ -1,15 +1,35 @@
-# LoL-Vigil
+# LoL-Vigil Backend
 
-This is a sample template for LoL-Vigil - Below is a brief explanation of what we have generated for you:
+## System Design
+### Diagram
+![Image of Yaktocat](assets/system_design.PNG)
 
+### DynamoDB Tables Schemas
 ```bash
-.
-├── Makefile                    <-- Make to automate build
-├── README.md                   <-- This instructions file
-├── hello-world                 <-- Source code for a lambda function
-│   ├── main.go                 <-- Lambda function code
-│   └── main_test.go            <-- Unit tests
-└── template.yaml
+├── Schedule                                <-- Table
+|   └── page                                <-- Key: Page index
+|       └── schedule                        <-- Raw schedule string
+|
+└── Matches                                 <-- Table
+    └── id                                  <-- Key: Match ID
+        ├── gameAlarms                    
+        |   └── 1                           <-- Game 1 alarms
+        |       └── deviceID                <-- Game alarm for deviceID
+        |           ├── hasBeenTriggered 
+        |           ├── trigger              
+        |           └── delay                 
+        ├── gameTimestamps                 
+        |   └── 1                           <-- Game 1 timestamps
+        |       ├── gameBegins            
+        |       └── firstBlood                 
+        ├── startTime                       <-- Scheduled start time of match 
+        ├── state                           <-- Status of match ["unstarted", "inProgress", "completed"]
+        ├── strategy                     
+        |   ├── type                        <-- Match Type ["bestOf"]
+        |   └── count                       <-- Number of games (1-5)         
+        └── teams                        
+            ├── A                           <-- Name of team 1
+            └── B                           <-- Name of team 2  
 ```
 
 ## Requirements
@@ -18,40 +38,53 @@ This is a sample template for LoL-Vigil - Below is a brief explanation of what w
 * [Docker installed](https://www.docker.com/community-edition)
 * [Golang](https://golang.org)
 * SAM CLI - [Install the SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
+* AWS account with a [SNS Platform Application](https://aws.amazon.com/premiumsupport/knowledge-center/create-android-push-messaging-sns/) (Used to send messages to devices via. Google Cloud Messaging)
+* [Local instance of DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html) 
 
 ## Setup process
 
 ### Installing dependencies & building the target 
 
-In this example we use the built-in `sam build` to automatically download all the dependencies and package our build target.   
+We use the built-in `sam build` to automatically download all the dependencies and package our build target.   
 Read more about [SAM Build here](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html) 
-
-The `sam build` command is wrapped inside of the `Makefile`. To execute this simply run
- 
-```shell
-make
-```
 
 ### Local development
 
 **Invoking function locally through local API Gateway**
-
-```bash
-sam local start-api
+```shell
+make testUpdateSchedule
 ```
+This will invoke the updateSchedule function and print out any outputs to your shell.
 
-If the previous command ran successfully you should now be able to hit the following local endpoint to invoke your function `http://localhost:3000/hello`
+
+You can also start a local server for the Lambda functions:
+```shell
+make run
+```
+If the previous command ran successfully you should now be able to hit local endpoints to invoke your functions `http://localhost:3000/get_schedule`
 
 **SAM CLI** is used to emulate both Lambda and API Gateway locally and uses our `template.yaml` to understand how to bootstrap this environment (runtime, where the source code is, etc.) - The following excerpt is what the CLI will read in order to initialize an API and its routes:
 
 ```yaml
 ...
 Events:
-    HelloWorld:
+    REST:
         Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
         Properties:
-            Path: /hello
+            Path: /get_schedule
             Method: get
+```
+
+## Using local instance of DynamoDB
+
+Initialize a Docker container for DynamoDB
+```shell
+make createDb
+```
+
+Create the Matches and Schedule tables
+```shell
+make startdb
 ```
 
 ## Packaging and deployment
@@ -60,11 +93,11 @@ AWS Lambda Golang runtime requires a flat folder with the executable generated o
 
 ```yaml
 ...
-    FirstFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-            CodeUri: hello_world/
-            ...
+UpdateScheduleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./update_schedule.zip
+      ...
 ```
 
 To deploy your application for the first time, run the following in your shell:
@@ -83,13 +116,13 @@ The command will package and deploy your application to AWS, with a series of pr
 
 You can find your API Gateway Endpoint URL in the output values displayed after deployment.
 
-### Testing
+After your first deploy, you can use the following command to deploy:
 
-We use `testing` package that is built-in in Golang and you can simply run the following command to run our tests:
-
-```shell
-go test -v ./hello-world/
+```bash
+make deploy
 ```
+
+
 # Appendix
 
 ### Golang installation
@@ -126,15 +159,3 @@ If it's already installed, run the following command to ensure it's the latest v
 ```shell
 choco upgrade golang
 ```
-
-## Bringing to the next level
-
-Here are a few ideas that you can use to get more acquainted as to how this overall process works:
-
-* Create an additional API resource (e.g. /hello/{proxy+}) and return the name requested through this new path
-* Update unit test to capture that
-* Package & Deploy
-
-Next, you can use the following resources to know more about beyond hello world samples and how others structure their Serverless applications:
-
-* [AWS Serverless Application Repository](https://aws.amazon.com/serverless/serverlessrepo/)

@@ -3,4 +3,5 @@
 .idea
 *.zip
 packaged.yaml
+template.yaml
 samconfig.toml
