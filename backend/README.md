@@ -16,7 +16,7 @@ The backend for LoL Vigil is 100% on AWS.
 - checkMatchStatus: Uses the LoLEsports unofficial API to get the live matches and then updates the status of the match in the Matches table. If the match is in progress, then it will publish a message to a SNS topic to trigger the sendAlarmNotifications function.
 - sendAlarmNotifications: Compares the state of a game (from the SNS trigger message) with the gameAlarms found in the Matches table. If the conditions match and the game alarm hasn't been triggered for the device, then SNS is used to send a GCM message to the device.
 
-### DynamoDB Tables Schemas
+### DynamoDB Table Schemas
 ```bash
 ├── Schedule                                <-- Table
 |   └── page                                <-- Key: Page index
