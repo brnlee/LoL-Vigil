@@ -2,7 +2,7 @@
 
 ## System Design
 ### Diagram
-![Image of Yaktocat](assets/system_design.PNG)
+![System design diagram](assets/system_design.PNG)
 
 ### DynamoDB Tables Schemas
 ```bash
