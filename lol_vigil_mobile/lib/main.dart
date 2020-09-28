@@ -3,7 +3,9 @@ import 'package:hive/hive.dart';
 import 'package:lolvigilmobile/models/MatchAlarm.dart';
 import 'package:lolvigilmobile/utils/firebase.dart';
 import 'package:lolvigilmobile/widgets/matchList.dart';
+import 'package:lolvigilmobile/utils/androidHelpers.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'dart:io' show Platform;
 
 class App extends StatelessWidget {
   @override
@@ -28,6 +30,10 @@ void main() async {
 
   firebaseToken = await initFirebase();
   print(firebaseToken);
+
+  if (Platform.isAndroid) {
+    checkIgnoreBatteryOptimization();
+  }
 
   runApp(App());
 }
