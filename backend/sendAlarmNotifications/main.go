@@ -22,7 +22,10 @@ type SNSMessage struct {
 }
 
 type GCMMessage struct {
-	Data DataMessage `json:"data,omitempty"`
+	Data     DataMessage     `json:"data,omitempty"`
+	Webpush  Webpush         `json:"webpush"`
+	Android  AndroidSettings `json:"android"`
+	Priority string          `json:"priority"`
 }
 
 type DataMessage struct {
@@ -34,6 +37,18 @@ type AlarmNotification struct {
 	GameNumber string `json:"gameNumber"`
 	Matchup    string `json:"matchup"`
 	Trigger    string `json:"trigger"`
+}
+
+type Webpush struct {
+	Header Header `json:"header"`
+}
+
+type Header struct {
+	Urgency string `json:"urgency"`
+}
+
+type AndroidSettings struct {
+	Priority string `json:"priority"`
 }
 
 var (
@@ -253,6 +268,9 @@ func sendNotification(deviceToken string, gameDetails common.GameDetails, trigge
 				Trigger:    trigger,
 			},
 		},
+		Webpush:  Webpush{Header: Header{Urgency: "high"}},
+		Android:  AndroidSettings{Priority: "high"},
+		Priority: "high",
 	}
 
 	log.Printf("%+v\n", gcmMessage)
